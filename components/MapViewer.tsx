@@ -19,6 +19,7 @@ import LineString from "ol/geom/LineString";
 import Point from "ol/geom/Point";
 import { Style, Stroke, Text, Fill } from "ol/style";
 import { unByKey } from "ol/Observable";
+import type MapBrowserEvent from "ol/MapBrowserEvent";
 import { Card } from "@/components/ui/card";
 import type { DatasetResponse, GraticuleSource,, TileLayerSource } from "@/lib/datasets";
 import { buildLegendJsonUrl, buildLegendMetaUrl, buildLegendUrl, buildTileUrl, isGraticuleSource } from "@/lib/datasets";
@@ -451,10 +452,8 @@ export default function MapViewer({
     baseLayer.current = new TileLayer({
       source: createXyzSource("", undefined, tileGrid, projectionCode),
       opacity: 0.9,
-      preload: 0,
+      preload: 2,
       useInterimTilesOnError: true,
-      updateWhileAnimating: false,
-      updateWhileInteracting: false,
       className: "basemap-layer",
     });
     baseLayer.current.setZIndex(10);
@@ -754,10 +753,8 @@ export default function MapViewer({
       layer = new TileLayer({
         source,
         opacity: 0,
-        preload: 0,
+        preload: 2,
         useInterimTilesOnError: true,
-        updateWhileAnimating: false,
-        updateWhileInteracting: false,
         className: "ice-layer",
       });
     } else if (activeIceSource.kind === "geotiff") {
@@ -782,10 +779,8 @@ export default function MapViewer({
       layer = new TileLayer({
         source,
         opacity: 0,
-        preload: 0,
+        preload: 2,
         useInterimTilesOnError: true,
-        updateWhileAnimating: false,
-        updateWhileInteracting: false,
         className: "ice-layer",
       });
     }
@@ -799,6 +794,7 @@ export default function MapViewer({
       map.addLayer(layer);
       if (!holdPrevious) {
         activateLayer();
+        iceLayer.current = layer;
       }
       readyTimer = setTimeout(markReadyIfIdle, 300);
 
