@@ -19,6 +19,7 @@ import LineString from "ol/geom/LineString";
 import Point from "ol/geom/Point";
 import { Style, Stroke, Text, Fill } from "ol/style";
 import { unByKey } from "ol/Observable";
+import type MapBrowserEvent from "ol/MapBrowserEvent";
 import { Card } from "@/components/ui/card";
 import type { DatasetResponse, GraticuleSource, TileLayerSource } from "@/lib/datasets";
 import { buildTileUrl, isGraticuleSource } from "@/lib/datasets";
@@ -357,14 +358,12 @@ export default function MapViewer({
       target: mapRef.current,
       view,
       controls: defaultControls({ zoom: true, attribution: true }),
-      loadTilesWhileAnimating: true,
-      loadTilesWhileInteracting: true,
     });
 
     baseLayer.current = new TileLayer({
       source: createXyzSource("", undefined, tileGrid, projectionCode),
       opacity: 0.9,
-      preload: 1,
+      preload: 2,
       useInterimTilesOnError: true,
       className: "basemap-layer",
     });
@@ -415,8 +414,10 @@ export default function MapViewer({
 
     mapInstance.current = map;
 
-    const updateCursorCoords = (coordinate: [number, number]) => {
-      const [lon, lat] = transform(coordinate, projectionCode, "EPSG:4326");
+    const updateCursorCoords = (coordinate: number[]) => {
+      const [x, y] = coordinate;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      const [lon, lat] = transform([x, y], projectionCode, "EPSG:4326");
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
       const next = { lat: Number(lat.toFixed(3)), lon: Number(lon.toFixed(3)) };
       const prev = cursorCoordsRef.current;
@@ -425,14 +426,14 @@ export default function MapViewer({
       setCursorCoords(next);
     };
 
-    const handlePointerMove = (event: { coordinate: [number, number] }) => {
+    const handlePointerMove = (event: MapBrowserEvent<UIEvent>) => {
       updateCursorCoords(event.coordinate);
     };
 
     map.on("pointermove", handlePointerMove);
     const center = view.getCenter();
     if (center) {
-      updateCursorCoords(center as [number, number]);
+      updateCursorCoords(center);
     }
 
     map.once("postrender", () => {
@@ -628,7 +629,7 @@ export default function MapViewer({
       layer = new TileLayer({
         source,
         opacity: 0,
-        preload: 1,
+        preload: 2,
         useInterimTilesOnError: true,
         className: "ice-layer",
       });
@@ -648,7 +649,7 @@ export default function MapViewer({
       layer = new TileLayer({
         source,
         opacity: 0,
-        preload: 1,
+        preload: 2,
         useInterimTilesOnError: true,
         className: "ice-layer",
       });
