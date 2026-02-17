@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { TileLayerSource } from "@/lib/datasets";
-import { buildGeoTiffUrl, buildTileUrl, buildWmsUrl, dataset as datasetData } from "@/lib/datasets";
+import type { GraticuleSource, OverlaySource, TileLayerSource } from "@/lib/datasets";
+import { buildGeoTiffUrl, buildTileUrl, dataset as datasetData, isGraticuleSource, isTileLayerSource, buildWmsUrl } from "@/lib/datasets";
 
 const getDateRange = (dates: string[]) => {
   if (dates.length === 0) {
@@ -82,11 +82,13 @@ export default function DataDebugPage() {
       !previewSource ||
       !sampleDate ||
       tileSamples.length === 0 ||
+      !isTileLayerSource(previewSource) ||
       previewSource.kind === "geotiff" ||
       previewSource.kind === "wms"
     ) {
       return [];
     }
+
     const baseUrl = buildTileUrl(previewSource, sampleDate);
     return tileSamples.map(({ z, y, x }) => replaceCoords(baseUrl, z, y, x));
   }, [previewSource, sampleDate, tileSamples]);
@@ -206,7 +208,7 @@ export default function DataDebugPage() {
     };
   }, [previewUrl]);
 
-  const renderLayer = (source: TileLayerSource) => (
+  const renderTileLayer = (source: TileLayerSource) => (
     <li
       key={source.id}
       className="rounded-md border border-slate-800 bg-slate-900/60 p-3"
@@ -234,6 +236,36 @@ export default function DataDebugPage() {
     </li>
   );
 
+  const renderGraticuleLayer = (source: GraticuleSource) => {
+    return (
+      <li
+        key={source.id}
+        className="rounded-md border border-slate-800 bg-slate-900/60 p-3"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-slate-200">{source.label}</p>
+            <p className="text-xs text-slate-500">Local graticule</p>
+          </div>
+          <span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] uppercase text-slate-300">
+            {source.latStep}° / {source.lonStep}°
+          </span>
+        </div>
+        <div className="mt-2 text-[11px] text-slate-400">
+          <p>
+            Extent: {source.minLat}° to {source.maxLat}°
+          </p>
+          <p className="mt-1">Attribution: {source.attribution}</p>
+        </div>
+      </li>
+    );
+  };
+
+  const renderOverlay = (source: OverlaySource) => {
+    if (isGraticuleSource(source)) return renderGraticuleLayer(source);
+    if (isTileLayerSource(source)) return renderTileLayer(source);
+    return null;
+  };
   return (
     <main className="min-h-screen bg-[#0d1117] px-6 py-10 text-slate-100">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -415,7 +447,7 @@ export default function DataDebugPage() {
                 </p>
                 <ul className="mt-2 space-y-3">
                   {dataset
-                    ? Object.values(dataset.baseLayers).map(renderLayer)
+                    ? Object.values(dataset.baseLayers).map(renderTileLayer)
                     : "Loading..."}
                 </ul>
               </div>
@@ -425,7 +457,7 @@ export default function DataDebugPage() {
                 </p>
                 <ul className="mt-2 space-y-3">
                   {dataset
-                    ? Object.values(dataset.iceSources).map(renderLayer)
+                    ? Object.values(dataset.iceSources).map(renderTileLayer)
                     : "Loading..."}
                 </ul>
               </div>
@@ -435,7 +467,7 @@ export default function DataDebugPage() {
                 </p>
                 <ul className="mt-2 space-y-3">
                   {dataset
-                    ? Object.values(dataset.overlays).map(renderLayer)
+                    ? Object.values(dataset.overlays).map(renderOverlay)
                     : "Loading..."}
                 </ul>
               </div>

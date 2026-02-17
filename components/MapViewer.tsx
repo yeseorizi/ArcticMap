@@ -3,18 +3,25 @@
 import { useEffect, useRef, useState } from "react";
 import proj4 from "proj4";
 import { register } from "ol/proj/proj4";
-import { get as getProjection } from "ol/proj";
-import Map from "ol/Map";
+import { get as getProjection, transform } from "ol/proj";
+import OlMap from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
+import VectorLayer from "ol/layer/Vector";
 import XYZ from "ol/source/XYZ";
 import TileWMS from "ol/source/TileWMS";
+import VectorSource from "ol/source/Vector";
 import TileGrid from "ol/tilegrid/TileGrid";
 import { createXYZ } from "ol/tilegrid";
 import { defaults as defaultControls } from "ol/control";
+import Feature from "ol/Feature";
+import LineString from "ol/geom/LineString";
+import Point from "ol/geom/Point";
+import { Style, Stroke, Text, Fill } from "ol/style";
+import { unByKey } from "ol/Observable";
 import { Card } from "@/components/ui/card";
-import type { DatasetResponse, TileLayerSource } from "@/lib/datasets";
-import { buildTileUrl } from "@/lib/datasets";
+import type { DatasetResponse, GraticuleSource, TileLayerSource } from "@/lib/datasets";
+import { buildTileUrl, isGraticuleSource } from "@/lib/datasets";
 import { useLanguage } from "@/components/LanguageProvider";
 
 interface MapViewerProps {
@@ -28,12 +35,14 @@ interface MapViewerProps {
   showGraticule: boolean;
 }
 
+type GraticuleLayer = TileLayer<XYZ> | VectorLayer<VectorSource>;
+
 const toExtent = (bounds: [[number, number], [number, number]]) =>
   [bounds[0][0], bounds[0][1], bounds[1][0], bounds[1][1]] as [
     number,
     number,
     number,
-    number
+    number,
   ];
 
 const createXyzSource = (
@@ -51,6 +60,193 @@ const createXyzSource = (
     crossOrigin: "anonymous",
   });
 
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const resolveGraticuleSettings = (source: GraticuleSource, zoom: number) => {
+  const match = source.zoomSteps?.find(
+    (step) => zoom >= step.minZoom && (step.maxZoom === undefined || zoom <= step.maxZoom),
+  );
+
+  const latStep = match?.latStep ?? source.latStep;
+  const lonStep = match?.lonStep ?? source.lonStep;
+  const segmentStep = match?.segmentStep ?? source.segmentStep;
+  const labelEveryLat = match?.labelEveryLat ?? source.labelEveryLat ?? latStep;
+  const labelEveryLon = match?.labelEveryLon ?? source.labelEveryLon ?? lonStep;
+  const dashArray = match?.dashArray ?? source.dashArray;
+  const opacity = match?.opacity ?? source.opacity;
+  const weight = match?.weight ?? source.weight;
+  const poleGap = match?.poleGap ?? source.poleGap;
+
+  return {
+    latStep,
+    lonStep,
+    segmentStep,
+    labelEveryLat,
+    labelEveryLon,
+    dashArray,
+    opacity,
+    weight,
+    poleGap,
+  };
+};
+
+const shouldLabel = (value: number, every: number | undefined) => {
+  if (!Number.isFinite(every) || !every || every <= 0) return false;
+  const ratio = value / every;
+  return Math.abs(ratio - Math.round(ratio)) < 1e-6;
+};
+
+const formatDegreeLabel = (value: number, kind: "lat" | "lon") => {
+  const abs = Math.abs(value);
+  let deg = Math.floor(abs + 1e-6);
+  let min = Math.round((abs - deg) * 60);
+  if (min === 60) {
+    deg += 1;
+    min = 0;
+  }
+  const dir =
+    kind === "lat"
+      ? value >= 0
+        ? "N"
+        : "S"
+      : value >= 0
+        ? "E"
+        : "W";
+  return `${deg}°${min}' ${dir}`;
+};
+
+const alignToStep = (value: number, step: number) => Math.ceil(value / step) * step;
+
+const buildGraticuleVectorLayer = (
+  source: GraticuleSource,
+  projectionCode: string,
+  zoom: number,
+) => {
+  const resolved = resolveGraticuleSettings(source, zoom);
+  const latStep = Math.max(0.1, Math.abs(resolved.latStep));
+  const lonStep = Math.max(0.1, Math.abs(resolved.lonStep));
+  const segmentStep = Math.max(0.1, Math.abs(resolved.segmentStep));
+  const labelEveryLat = resolved.labelEveryLat;
+  const labelEveryLon = resolved.labelEveryLon;
+
+  const poleGap = Math.max(0, Math.min(5, Math.abs(resolved.poleGap ?? 0.005)));
+  const minLat = clamp(source.minLat, -89.999, 89.999);
+  const maxLat = clamp(source.maxLat, minLat, 90 - poleGap);
+  const parallelMaxLat = maxLat;
+
+  const toMap = (lon: number, lat: number) =>
+    transform([lon, lat], "EPSG:4326", projectionCode);
+
+  const features: Feature[] = [];
+
+  const latStart = alignToStep(minLat, latStep);
+  const lonStart = alignToStep(-180, lonStep);
+
+  const lonLineValues: number[] = [];
+  for (let lon = lonStart; lon < 180; lon += lonStep) {
+    lonLineValues.push(lon);
+  }
+
+  const latLineValues: number[] = [];
+  for (let lat = latStart; lat <= parallelMaxLat + 1e-6; lat += latStep) {
+    latLineValues.push(lat);
+  }
+
+  for (const lat of latLineValues) {
+    const coords: number[][] = [];
+    for (let lon = -180; lon <= 180; lon += segmentStep) {
+      coords.push(toMap(lon, lat));
+    }
+    features.push(new Feature({ geometry: new LineString(coords) }));
+
+    if (shouldLabel(lat, labelEveryLat)) {
+      for (const lon of lonLineValues) {
+        const lonMid = lon + lonStep / 2;
+        const label = new Feature({
+          geometry: new Point(toMap(lonMid, lat)),
+          label: formatDegreeLabel(lat, "lat"),
+        });
+        features.push(label);
+      }
+    }
+  }
+
+  const latSegmentStarts: number[] = [];
+  for (let lat = latStart; lat + latStep <= maxLat + 1e-6; lat += latStep) {
+    latSegmentStarts.push(lat);
+  }
+
+  for (const lon of lonLineValues) {
+    const coords: number[][] = [];
+    for (let lat = minLat; lat <= maxLat + 1e-6; lat += segmentStep) {
+      coords.push(toMap(lon, lat));
+    }
+    features.push(new Feature({ geometry: new LineString(coords) }));
+
+    if (shouldLabel(lon, labelEveryLon)) {
+      for (const lat of latSegmentStarts) {
+        const latMid = lat + latStep / 2;
+        const label = new Feature({
+          geometry: new Point(toMap(lon, latMid)),
+          label: formatDegreeLabel(lon, "lon"),
+        });
+        features.push(label);
+      }
+    }
+  }
+
+  const lineStyle = new Style({
+    stroke: new Stroke({
+      color: "rgba(255, 255, 255, 0.96)",
+      width: resolved.weight ?? 1,
+      lineDash: resolved.dashArray as number[] | undefined,
+    }),
+  });
+
+  const zoomOut = zoom <= 2;
+  const labelCache = new Map<string, Style>();
+  const textFill = new Fill({ color: "rgba(255, 255, 255, 1.0)" });
+  const textStroke = new Stroke({ color: "rgba(15, 23, 42, 0.25)", width: 0.5 });
+
+  const layerOpacity = clamp(resolved.opacity ?? 1, 0, 1) * 1.0;
+
+  const layer = new VectorLayer({
+    source: new VectorSource({ features }),
+    className: "graticule-layer",
+    opacity: layerOpacity,
+    style: (feature) => {
+      const label = feature.get("label") as string | undefined;
+      if (!label) return lineStyle;
+
+      const key = `${label}-${zoomOut}`;
+      const cached = labelCache.get(key);
+      if (cached) return cached;
+
+      const style = new Style({
+        text: new Text({
+          text: label,
+          font: zoomOut ? "10px sans-serif" : "11px sans-serif",
+          fill: textFill,
+          stroke: textStroke,
+        }),
+      });
+      labelCache.set(key, style);
+      return style;
+    },
+  });
+
+  return layer;
+};
+
+const isVectorGraticuleLayer = (
+  layer: GraticuleLayer | null,
+): layer is VectorLayer<VectorSource> =>
+  !!layer && layer.getSource() instanceof VectorSource;
+
+const isXyzLayer = (layer: GraticuleLayer | null): layer is TileLayer<XYZ> =>
+  !!layer && layer.getSource() instanceof XYZ;
+
 export default function MapViewer({
   dataset,
   activeDate,
@@ -62,28 +258,28 @@ export default function MapViewer({
   showGraticule,
 }: MapViewerProps) {
   const mapRef = useRef<HTMLDivElement | null>(null);
-  const mapInstance = useRef<Map | null>(null);
+  const mapInstance = useRef<OlMap | null>(null);
   const tileGridRef = useRef<TileGrid | null>(null);
   const baseLayer = useRef<TileLayer<XYZ> | null>(null);
   const coastLayer = useRef<TileLayer<XYZ> | null>(null);
-  const graticuleLayer = useRef<TileLayer<XYZ> | null>(null);
-  const iceLayer = useRef<TileLayer | null>(null);
+  const graticuleLayer = useRef<GraticuleLayer | null>(null);
+  const iceLayer = useRef<TileLayer<XYZ | TileWMS> | null>(null);
   const [iceStatus, setIceStatus] = useState<{
     state: "idle" | "loading" | "ready" | "error";
     message?: string;
   }>({ state: "idle" });
   const [iceReloadToken, setIceReloadToken] = useState(0);
-
   const { t } = useLanguage();
+
   const handleRetry = () => setIceReloadToken((value) => value + 1);
   const setLoadingStatus = () =>
     setIceStatus((prev) => (prev.state === "error" ? prev : { state: "loading" }));
 
   const overlayTileUrl = (
-    overlay?: TileLayerSource,
+    overlay?: TileLayerSource | GraticuleSource,
     date: string | undefined = activeDate,
   ) => {
-    if (!overlay || !date) return "";
+    if (!overlay || !date || isGraticuleSource(overlay)) return "";
     return buildTileUrl(overlay, date);
   };
 
@@ -119,7 +315,7 @@ export default function MapViewer({
       zoom: dataset.mapConfig.initialZoom,
     });
 
-    const map = new Map({
+    const map = new OlMap({
       target: mapRef.current,
       view,
       controls: defaultControls({ zoom: true, attribution: true }),
@@ -138,20 +334,42 @@ export default function MapViewer({
       source: createXyzSource("", coastSource.attribution, tileGrid, projectionCode),
       opacity: coastSource.opacity,
       className: "coastline-layer",
-      visible: false,
+      visible: showCoastlines,
     });
     coastLayer.current.setZIndex(30);
     map.addLayer(coastLayer.current);
 
     const graticuleSource = dataset.overlays.graticule;
-    graticuleLayer.current = new TileLayer({
-      source: createXyzSource("", graticuleSource.attribution, tileGrid, projectionCode),
-      opacity: graticuleSource.opacity,
-      className: "graticule-layer",
-      visible: false,
+    if (isGraticuleSource(graticuleSource)) {
+      graticuleLayer.current = buildGraticuleVectorLayer(
+        graticuleSource,
+        projectionCode,
+        view.getZoom() ?? dataset.mapConfig.initialZoom,
+      );
+      graticuleLayer.current.setVisible(showGraticule);
+      graticuleLayer.current.setZIndex(30);
+      map.addLayer(graticuleLayer.current);
+    } else {
+      graticuleLayer.current = new TileLayer({
+        source: createXyzSource("", graticuleSource.attribution, tileGrid, projectionCode),
+        opacity: graticuleSource.opacity,
+        className: "graticule-layer",
+        visible: showGraticule,
+      });
+      graticuleLayer.current.setZIndex(30);
+      map.addLayer(graticuleLayer.current);
+    }
+
+    const zoomKey = view.on("change:resolution", () => {
+      const graticule = dataset.overlays.graticule;
+      if (!isGraticuleSource(graticule)) return;
+      if (!isVectorGraticuleLayer(graticuleLayer.current)) return;
+
+      const zoom = view.getZoom() ?? dataset.mapConfig.initialZoom;
+      const rebuilt = buildGraticuleVectorLayer(graticule, projectionCode, zoom);
+      graticuleLayer.current.setSource(rebuilt.getSource() as VectorSource);
+      graticuleLayer.current.setStyle(rebuilt.getStyle() as any);
     });
-    graticuleLayer.current.setZIndex(30);
-    map.addLayer(graticuleLayer.current);
 
     mapInstance.current = map;
 
@@ -160,6 +378,7 @@ export default function MapViewer({
     });
 
     return () => {
+      unByKey(zoomKey);
       map.setTarget(undefined);
       mapInstance.current = null;
       tileGridRef.current = null;
@@ -210,18 +429,21 @@ export default function MapViewer({
   useEffect(() => {
     if (!dataset || !tileGridRef.current || !graticuleLayer.current) return;
 
-    const url = overlayTileUrl(dataset.overlays.graticule, activeDate);
+    if (!isXyzLayer(graticuleLayer.current)) return;
+
+    const graticuleSource = dataset.overlays.graticule;
+    const url = overlayTileUrl(graticuleSource, activeDate);
     if (!url) return;
 
     graticuleLayer.current.setSource(
       createXyzSource(
         url,
-        dataset.overlays.graticule.attribution,
+        graticuleSource.attribution,
         tileGridRef.current,
         dataset.mapConfig.projection,
       ),
     );
-    graticuleLayer.current.setOpacity(dataset.overlays.graticule.opacity);
+    graticuleLayer.current.setOpacity(graticuleSource.opacity);
   }, [dataset, activeDate]);
 
   useEffect(() => {
@@ -262,7 +484,7 @@ export default function MapViewer({
     const onTileLoadError = () =>
       setIceStatus({ state: "error", message: "tile load failed" });
 
-    let layer: TileLayer | null = null;
+    let layer: TileLayer<XYZ | TileWMS> | null = null;
     let source: TileWMS | XYZ | null = null;
 
     if (activeIceSource.kind === "wms") {
@@ -271,7 +493,6 @@ export default function MapViewer({
       let wmsProjection = mapProjection;
 
       if (!supported.includes(mapProjection.toUpperCase())) {
-        // When the map projection is unsupported, request WMS in a known CRS and let OL reproject.
         if (supported.includes("EPSG:3857")) {
           wmsProjection = "EPSG:3857";
         } else if (supported.includes("EPSG:4326") || supported.includes("CRS:84")) {
@@ -357,18 +578,24 @@ export default function MapViewer({
 
   return (
     <Card className="relative min-h-[655px] overflow-hidden border-slate-700">
-      <div ref={mapRef} className="h-[655px] w-full bg-slate-900" aria-label="Arctic sea ice map" />
+      <div
+        ref={mapRef}
+        className="h-[655px] w-full bg-slate-900"
+        aria-label="Arctic sea ice map"
+      />
 
       <div className="absolute left-4 top-4 z-[1000] rounded-md bg-slate-900/80 px-3 py-2 text-[11px] text-slate-300">
         <div>
-          {t("baseMap")}: {activeBaseLayer ? activeBaseLayer.label : <span>{t("notSelected")}</span>}
+          {t("baseMap")}:{" "}
+          {activeBaseLayer ? activeBaseLayer.label : <span>{t("notSelected")}</span>}
         </div>
         <div>
-          {t("iceConcentration")}: {activeIceSource ? activeIceSource.label : <span>{t("notSelected")}</span>}
+          {t("iceConcentration")}:{" "}
+          {activeIceSource ? activeIceSource.label : <span>{t("notSelected")}</span>}
         </div>
         <div className="mt-1 flex items-center gap-2">
           <span>
-            {t("iceStatus")}:{" "}
+            {t("dataStatus")}:{" "}
             <span
               className={
                 iceStatus.state === "error"
