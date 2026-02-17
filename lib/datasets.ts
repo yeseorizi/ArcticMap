@@ -3,6 +3,7 @@ export type TileLayerSource = {
   label: string;
   layer: string;
   tileMatrixSet: string;
+  description: string;
   format: "jpg" | "jpeg" | "png" | "tif" | "nc";
   attribution: string;
   infoUrl?: string;
@@ -34,6 +35,7 @@ export type GraticuleSource = {
   label: string;
   kind: "graticule";
   attribution: string;
+  description: string;
   opacity: number;
   minLat: number;
   maxLat: number;
@@ -122,11 +124,13 @@ const osiSafWmsFileTemplate =
 const copernicusWmtsTemplate =
   "https://wmts.marine.copernicus.eu/teroWmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER={layer}&STYLE={style}&TILEMATRIXSET={tileMatrixSet}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/{format}&TIME={time}T12:00:00.000Z";
 const copernicusWmtsLegendTemplate =
-  "https://wmts.marine.copernicus.eu/teroWmts?SERVICE=WMTS&REQUEST=GetLegend&LAYER={layer}&STYLE={style}&FORMAT=image/svg+xml";
+  "https://wmts.marine.copernicus.eu/teroWmts?SERVICE=WMTS&REQUEST=GetLegend&LAYER={layer}&STYLE={style}&FORMAT=image%2Fsvg%2Bxml";
 const copernicusWmtsLegendJsonTemplate =
   "https://wmts.marine.copernicus.eu/teroWmts?SERVICE=WMTS&REQUEST=GetLegend&LAYER={layer}&STYLE={style}&FORMAT=application/json";
-const copernicusWmtsCapabilitiesUrl =
+const copernicusNextSimWmtsCapabilitiesUrl =
   "https://wmts.marine.copernicus.eu/teroWmts/ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311?request=GetCapabilities&service=WMTS";
+const copernicusGlobalSeaIceWmtsCapabilitiesUrl =
+  "https://wmts.marine.copernicus.eu/teroWmts?request=GetCapabilities&service=WMTS";
 
 export const dataset: DatasetResponse = {
   mapConfig: {
@@ -137,7 +141,7 @@ export const dataset: DatasetResponse = {
     origin: [-4194304, 4194304],
     bounds: [
       [-4194304, -4194304],
-      [4194304, 4194304]
+      [4194304, 4194304],
     ],
     center: [90, 0],
     initialZoom: 1,
@@ -145,29 +149,35 @@ export const dataset: DatasetResponse = {
     maxZoom: 7,
     maxBounds: [
       [50, -180],
-      [90, 180]
-    ]
+      [90, 180],
+    ],
   },
   baseLayers: {
     blueMarble: {
       id: "blueMarble",
       label: "Blue Marble",
+      description: "The MODIS Blue Marble, Next Generation is a static product created with data from 2004 from the MODIS instrument on board the Terra satellite. The image resolution is 500 m. It can be viewed in Worldview/Global Imagery Browse Services (GIBS)",
       layer: "BlueMarble_NextGeneration",
+      infoUrl:
+        "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation",
       tileMatrixSet: "500m",
       format: "jpeg",
       attribution: "NASA GIBS",
       urlTemplate: gibsStaticUrlTemplate,
-      opacity: 0.9
+      opacity: 0.9,
     },
     blueMarbleBathymetry: {
       id: "blueMarbleBathymetry",
+      description: "Blue Marble with shaded relief and bathymetry",
       label: "Blue Marble Bathymetry",
       layer: "BlueMarble_ShadedRelief_Bathymetry",
+      infoUrl:
+        "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation",
       tileMatrixSet: "500m",
       format: "jpeg",
       attribution: "NASA GIBS",
       urlTemplate: gibsStaticUrlTemplate,
-      opacity: 0.9
+      opacity: 0.9,
     },
     // modis: {
     //   id: "modis",
@@ -181,141 +191,270 @@ export const dataset: DatasetResponse = {
     // }
   },
   iceSources: {
-    noaaSeaIceConcentration: {
-      id: "noaaSeaIceConcentration",
-      label: "NOAA Sea Ice Concentration (GeoTIFF)",
-      layer: "NOAA_G02135",
-      tileMatrixSet: "geotiff",
-      format: "tif",
-      attribution: "NSIDC NOAA G02135",
-      infoUrl: "https://nsidc.org/data/g02135",
-      urlTemplate: noaaGeoTiffTemplate,
-      opacity: 0.7,
-      kind: "geotiff"
-    },
-
-    osiSafAmsr2Wms: {
-      id: "osiSafAmsr2Wms",
-      label: "OSI SAF AMSR2 SIC (WMS · ice_conc)",
-      layer: "ice_conc",
-      tileMatrixSet: "wms",
-      format: "png",
-      attribution: "EUMETSAT OSI SAF",
-      infoUrl: "https://osi-saf.eumetsat.int/products/sea-ice-products",
-      urlTemplate: osiSafWmsFileTemplate,
-      opacity: 0.75,
-      kind: "wms",
-      wmsTime: false,
-      wmsCrs: ["EPSG:3857", "CRS:84", "EPSG:4326"],
-      wmsDefaultStyle: "boxfill",
-      wmsPalette: "rainbow",
-      wmsColorScaleRange: "0,100",
-      legendOrientation: "vertical",
-      wmsCatalogRoot:
-        "https://thredds.met.no/thredds/catalog/osisaf/met.no/ice/amsr2_conc",
-    },
-    osiSafAmsr2WmsUncertainty: {
-      id: "osiSafAmsr2WmsUncertainty",
-      label: "OSI SAF AMSR2 SIC (WMS · total_uncertainty)",
-      layer: "total_uncertainty",
-      tileMatrixSet: "wms",
-      format: "png",
-      attribution: "EUMETSAT OSI SAF",
-      infoUrl: "https://osi-saf.eumetsat.int/products/sea-ice-products",
-      urlTemplate: osiSafWmsFileTemplate,
-      opacity: 0.75,
-      kind: "wms",
-      wmsTime: false,
-      wmsCrs: ["EPSG:3857", "CRS:84", "EPSG:4326"],
-      wmsDefaultStyle: "boxfill",
-      wmsColorScaleRange: "-50,50",
-      legendOrientation: "vertical",
-      wmsCatalogRoot:
-        "https://thredds.met.no/thredds/catalog/osisaf/met.no/ice/amsr2_conc",
-    },
-    copernicusSeaIceThickness: {
-      id: "copernicusSeaIceThickness",
-      label: "Copernicus Sea Ice Thickness (WMTS · sithick)",
+    ASMR2OsiSafIceConc: {
+      id: "ASMR2OsiSafIceConc",
+      label: "Sea Ice Concentration, AMSR2",
+      description:
+        "Sea ice concentration derived applying the status flag to the sea ice concentration retrieved by the OSI SAF hybrid algorithm (ice_conc) from data obtained by ASMR2 sensor on board the GCOM-W1 satellite.",
       layer:
-        "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/sithick",
+        "SEAICE_GLO_SEAICE_L4_NRT_OBSERVATIONS_011_001/osisaf_obs-si_glo_phy-sic-north_nrt_amsr2_l4_P1D-m_202304/ice_conc",
       tileMatrixSet: "EPSG:4326",
       format: "png",
-      attribution: "Copernicus Marine Service",
-      infoUrl: "https://data.marine.copernicus.eu/product/ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011",
+      attribution: "Copernicus Marine Service / EUMETSAT OSI SAF",
+      infoUrl:
+        "https://data.marine.copernicus.eu/product/SEAICE_GLO_SEAICE_L4_NRT_OBSERVATIONS_011_001",
       urlTemplate: copernicusWmtsTemplate,
       opacity: 0.8,
       kind: "wmts",
       wmtsStyle: "cmap:ice",
       legendUrlTemplate: copernicusWmtsLegendTemplate,
       legendJsonUrlTemplate: copernicusWmtsLegendJsonTemplate,
-      wmtsCapabilitiesUrl: copernicusWmtsCapabilitiesUrl,
+      legendOrientation: "vertical",
+      wmtsCapabilitiesUrl: copernicusGlobalSeaIceWmtsCapabilitiesUrl,
+      sourceProjection: "EPSG:4326",
+      wrapX: true,
+      bounds: [
+        [-180, 30],
+        [179.9, 90],
+      ],
+    },
+    // osiSafAmsr2Wms: {
+    //   id: "osiSafAmsr2Wms",
+    //   label: "OSI SAF AMSR2 SIC (WMS · ice_conc)",
+    //   layer: "ice_conc",
+    //   tileMatrixSet: "wms",
+    //   format: "png",
+    //   attribution: "EUMETSAT OSI SAF",
+    //   infoUrl: "https://osi-saf.eumetsat.int/products/sea-ice-products",
+    //   urlTemplate: osiSafWmsFileTemplate,
+    //   opacity: 0.75,
+    //   kind: "wms",
+    //   wmsTime: false,
+    //   wmsCrs: ["EPSG:3857", "CRS:84", "EPSG:4326"],
+    //   wmsDefaultStyle: "boxfill",
+    //   wmsPalette: "rainbow",
+    //   wmsColorScaleRange: "0,100",
+    //   legendOrientation: "vertical",
+    //   wmsCatalogRoot:
+    //     "https://thredds.met.no/thredds/catalog/osisaf/met.no/ice/amsr2_conc",
+    // },
+    // osiSafAmsr2WmsUncertainty: {
+    //   id: "osiSafAmsr2WmsUncertainty",
+    //   label: "OSI SAF AMSR2 SIC (WMS · total_uncertainty)",
+    //   layer: "total_uncertainty",
+    //   tileMatrixSet: "wms",
+    //   format: "png",
+    //   attribution: "EUMETSAT OSI SAF",
+    //   infoUrl: "https://osi-saf.eumetsat.int/products/sea-ice-products",
+    //   urlTemplate: osiSafWmsFileTemplate,
+    //   opacity: 0.75,
+    //   kind: "wms",
+    //   wmsTime: false,
+    //   wmsCrs: ["EPSG:3857", "CRS:84", "EPSG:4326"],
+    //   wmsDefaultStyle: "boxfill",
+    //   wmsColorScaleRange: "-50,50",
+    //   legendOrientation: "vertical",
+    //   wmsCatalogRoot:
+    //     "https://thredds.met.no/thredds/catalog/osisaf/met.no/ice/amsr2_conc",
+    // },
+    nextSimSeaIceConcentration: {
+      id: "nextSimSeaIceConcentration",
+      label: "[neXtSIM] Sea Ice Concentration forcast (Linear Scale)",
+      description:
+        "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
+      layer:
+        "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/siconc",
+      tileMatrixSet: "EPSG:4326",
+      format: "png",
+      attribution: "Copernicus Marine Service / NERSC (Norway)",
+      infoUrl:
+        "https://data.marine.copernicus.eu/product/ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011",
+      urlTemplate: copernicusWmtsTemplate,
+      opacity: 0.8,
+      kind: "wmts",
+      wmtsStyle: "cmap:ice",
+      legendUrlTemplate: copernicusWmtsLegendTemplate,
+      legendJsonUrlTemplate: copernicusWmtsLegendJsonTemplate,
+      wmtsCapabilitiesUrl: copernicusNextSimWmtsCapabilitiesUrl,
       sourceProjection: "EPSG:4326",
       wrapX: true,
     },
-    copernicusSeaIceVelocityEast: {
-      id: "copernicusSeaIceVelocityEast",
-      label: "Copernicus Sea Ice Velocity (WMTS · vxsi)",
+    nextSimSeaIceConcentrationLog: {
+      id: "nextSimSeaIceConcentrationLog",
+      label: "[neXtSIM] Sea Ice Concentration forcast (Log Scale)",
+      description:
+        "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
-        "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/vxsi",
+        "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/siconc",
+      tileMatrixSet: "EPSG:4326",
+      format: "png",
+      attribution: "Copernicus Marine Service / NERSC (Norway)",
+      infoUrl:
+        "https://data.marine.copernicus.eu/product/ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011",
+      urlTemplate: copernicusWmtsTemplate,
+      opacity: 0.8,
+      kind: "wmts",
+      wmtsStyle: "cmap:ice,logScale",
+      legendUrlTemplate: copernicusWmtsLegendTemplate,
+      legendJsonUrlTemplate: copernicusWmtsLegendJsonTemplate,
+      wmtsCapabilitiesUrl: copernicusNextSimWmtsCapabilitiesUrl,
+      sourceProjection: "EPSG:4326",
+      wrapX: true,
+    },
+    nextSimSeaIceThickness: {
+      id: "nextSimSeaIceThickness",
+      label: "[neXtSIM] Sea Ice Thickness forcast (Linear Scale)",
+      description:
+        "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
+      layer:
+        "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/sithick",
       tileMatrixSet: "EPSG:4326",
       format: "png",
       attribution: "Copernicus Marine Service",
+      infoUrl:
+        "https://data.marine.copernicus.eu/product/ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011",
+      urlTemplate: copernicusWmtsTemplate,
+      opacity: 0.8,
+      kind: "wmts",
+      wmtsStyle: "cmap:ice",
+      legendUrlTemplate: copernicusWmtsLegendTemplate,
+      legendJsonUrlTemplate: copernicusWmtsLegendJsonTemplate,
+      wmtsCapabilitiesUrl: copernicusNextSimWmtsCapabilitiesUrl,
+      sourceProjection: "EPSG:4326",
+      wrapX: true,
+    },
+    nextSimSeaIceThicknessLog: {
+      id: "nextSimSeaIceThicknessLog",
+      label: "[neXtSIM] Sea Ice Thickness forcast (Log Scale)",
+      description:
+        "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
+      layer:
+        "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/sithick",
+      tileMatrixSet: "EPSG:4326",
+      format: "png",
+      attribution: "Copernicus Marine Service / NERSC (Norway)",
+      infoUrl:
+        "https://data.marine.copernicus.eu/product/ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011",
+      urlTemplate: copernicusWmtsTemplate,
+      opacity: 0.8,
+      kind: "wmts",
+      wmtsStyle: "cmap:ice,logScale",
+      legendUrlTemplate: copernicusWmtsLegendTemplate,
+      legendJsonUrlTemplate: copernicusWmtsLegendJsonTemplate,
+      wmtsCapabilitiesUrl: copernicusNextSimWmtsCapabilitiesUrl,
+      sourceProjection: "EPSG:4326",
+      wrapX: true,
+    },
+    nextSimSeaIceVelocity: {
+      id: "nextSimSeaIceVelocity",
+      label: "[neXtSIM] Sea Ice Velocity forcast (Linear Vector)",
+      description:
+        "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
+      layer:
+        "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/sea_ice_velocity",
+      tileMatrixSet: "EPSG:4326",
+      format: "png",
+      attribution: "Copernicus Marine Service / NERSC (Norway)",
       infoUrl: "https://data.marine.copernicus.eu/product/ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011",
       urlTemplate: copernicusWmtsTemplate,
       opacity: 0.8,
       kind: "wmts",
-      wmtsStyle: "cmap:delta",
-      legendUrlTemplate: copernicusWmtsLegendTemplate,
+      wmtsStyle: "cmap:speed,vectorStyle:solidAndVector",
+      // legendUrlTemplate: copernicusWmtsLegendTemplate,
       legendJsonUrlTemplate: copernicusWmtsLegendJsonTemplate,
-      wmtsCapabilitiesUrl: copernicusWmtsCapabilitiesUrl,
+      legendOrientation: "vertical",
+      wmtsCapabilitiesUrl: copernicusNextSimWmtsCapabilitiesUrl,
       sourceProjection: "EPSG:4326",
       wrapX: true,
     },
-    copernicusSeaIceVelocityNorth: {
-      id: "copernicusSeaIceVelocityNorth",
-      label: "Copernicus Sea Ice Velocity (WMTS · vysi)",
+    nextSimSeaIceVelocityLog: {
+      id: "nextSimSeaIceVelocityLog",
+      label: "[neXtSIM] Sea Ice Velocity forcast (Log Vector)",
+      description:
+        "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
-        "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/vysi",
+        "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/sea_ice_velocity",
       tileMatrixSet: "EPSG:4326",
       format: "png",
-      attribution: "Copernicus Marine Service",
+      attribution: "Copernicus Marine Service / NERSC (Norway)",
       infoUrl: "https://data.marine.copernicus.eu/product/ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011",
       urlTemplate: copernicusWmtsTemplate,
       opacity: 0.8,
       kind: "wmts",
-      wmtsStyle: "cmap:delta",
-      legendUrlTemplate: copernicusWmtsLegendTemplate,
+      wmtsStyle: "cmap:speed,logScale,vectorStyle:solidAndVector",
+      // legendUrlTemplate: copernicusWmtsLegendTemplate,
       legendJsonUrlTemplate: copernicusWmtsLegendJsonTemplate,
-      wmtsCapabilitiesUrl: copernicusWmtsCapabilitiesUrl,
+      legendOrientation: "vertical",
+      wmtsCapabilitiesUrl: copernicusNextSimWmtsCapabilitiesUrl,
       sourceProjection: "EPSG:4326",
       wrapX: true,
     },
-    
+    // copernicusSeaIceVelocityEast: {
+    //   id: "copernicusSeaIceVelocityEast",
+    //   label: "Copernicus Sea Ice Velocity (WMTS · vxsi)",
+    //   layer:
+    //     "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/vxsi",
+    //   tileMatrixSet: "EPSG:4326",
+    //   format: "png",
+    //   attribution: "Copernicus Marine Service",
+    //   infoUrl: "https://data.marine.copernicus.eu/product/ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011",
+    //   urlTemplate: copernicusWmtsTemplate,
+    //   opacity: 0.8,
+    //   kind: "wmts",
+    //   wmtsStyle: "cmap:delta",
+    //   legendUrlTemplate: copernicusWmtsLegendTemplate,
+    //   legendJsonUrlTemplate: copernicusWmtsLegendJsonTemplate,
+    //   wmtsCapabilitiesUrl: copernicusNextSimWmtsCapabilitiesUrl,
+    //   sourceProjection: "EPSG:4326",
+    //   wrapX: true,
+    // },
+    // copernicusSeaIceVelocityNorth: {
+    //   id: "copernicusSeaIceVelocityNorth",
+    //   label: "Copernicus Sea Ice Velocity (WMTS · vysi)",
+    //   layer:
+    //     "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/vysi",
+    //   tileMatrixSet: "EPSG:4326",
+    //   format: "png",
+    //   attribution: "Copernicus Marine Service",
+    //   infoUrl: "https://data.marine.copernicus.eu/product/ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011",
+    //   urlTemplate: copernicusWmtsTemplate,
+    //   opacity: 0.8,
+    //   kind: "wmts",
+    //   wmtsStyle: "cmap:delta",
+    //   legendUrlTemplate: copernicusWmtsLegendTemplate,
+    //   legendJsonUrlTemplate: copernicusWmtsLegendJsonTemplate,
+    //   wmtsCapabilitiesUrl: copernicusNextSimWmtsCapabilitiesUrl,
+    //   sourceProjection: "EPSG:4326",
+    //   wrapX: true,
+    // },
   },
   overlays: {
     coastlines: {
       id: "coastlines_nasa",
       label: "Coastlines NASA GIBS",
+      description: "Coastlines from NASA GIBS",
       layer: "Coastlines",
       tileMatrixSet: "250m",
       format: "png",
       attribution: "NASA GIBS",
       urlTemplate: gibsStaticUrlTemplate,
-      opacity: 0.9
+      opacity: 0.9,
     },
     graticule_nasa: {
       id: "graticule_nasa",
+      description: "Graticule from NASA GIBS",
       label: "Graticule (NASA GIBS)",
       layer: "Graticule (NASA GIBS)",
       tileMatrixSet: "250m",
       format: "png",
       attribution: "NASA GIBS",
       urlTemplate: gibsStaticUrlTemplate,
-      opacity: 0.45
+      opacity: 0.45,
     },
     graticule: {
       id: "graticule",
       label: "Graticule (Local)",
+      description: "Graticule generated locally in the browser, with dynamic styling based on zoom level",
       kind: "graticule",
       attribution: "Generated locally",
       opacity: 0.3,
@@ -379,8 +518,8 @@ export const dataset: DatasetResponse = {
           labelEveryLon: 30,
           poleGap: 0.05,
           // dashArray: "2,4"
-        }
-      ]
+        },
+      ],
     },
   },
   snapshots: [
@@ -390,7 +529,7 @@ export const dataset: DatasetResponse = {
       extent: 13.92,
       anomaly: -0.34,
       drift: "NNE",
-      concentration: 92
+      concentration: 92,
     },
     {
       label: "Feb 02",
@@ -398,7 +537,7 @@ export const dataset: DatasetResponse = {
       extent: 13.71,
       anomaly: -0.41,
       drift: "NE",
-      concentration: 89
+      concentration: 89,
     },
     {
       label: "Feb 03",
@@ -406,7 +545,7 @@ export const dataset: DatasetResponse = {
       extent: 13.55,
       anomaly: -0.48,
       drift: "E",
-      concentration: 86
+      concentration: 86,
     },
     {
       label: "Feb 04",
@@ -414,7 +553,7 @@ export const dataset: DatasetResponse = {
       extent: 13.42,
       anomaly: -0.53,
       drift: "ESE",
-      concentration: 83
+      concentration: 83,
     },
     {
       label: "Feb 05",
@@ -422,7 +561,7 @@ export const dataset: DatasetResponse = {
       extent: 13.66,
       anomaly: -0.36,
       drift: "ENE",
-      concentration: 90
+      concentration: 90,
     },
     {
       label: "Feb 06",
@@ -430,7 +569,7 @@ export const dataset: DatasetResponse = {
       extent: 13.58,
       anomaly: -0.39,
       drift: "NE",
-      concentration: 88
+      concentration: 88,
     },
     {
       label: "Feb 07",
@@ -438,7 +577,7 @@ export const dataset: DatasetResponse = {
       extent: 13.49,
       anomaly: -0.42,
       drift: "E",
-      concentration: 87
+      concentration: 87,
     },
     {
       label: "Feb 08",
@@ -446,46 +585,20 @@ export const dataset: DatasetResponse = {
       extent: 13.44,
       anomaly: -0.45,
       drift: "ESE",
-      concentration: 85
-    }
+      concentration: 85,
+    },
   ],
   calendarDays: [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    21,
-    22,
-    23,
-    24,
-    25,
-    26,
-    27,
-    28
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+    22, 23, 24, 25, 26, 27, 28,
   ],
   defaults: {
     baseLayerKey: "",
     iceSourceKey: "",
     showCoastlines: true,
     showGraticule: true,
-    defaultDate: "2026-02-08"
-  }
+    defaultDate: "2026-02-08",
+  },
 };
 
 export const calendarDays: (number | null)[] = (() => {
@@ -513,7 +626,9 @@ export const buildTileUrl = (source: TileLayerSource, date: string) =>
 export const buildLegendUrl = (source: TileLayerSource, date: string) => {
   if (source.legendUrlTemplate) {
     const layer = encodeURIComponent(source.layer);
-    const style = encodeURIComponent(source.wmtsStyle ?? source.wmsDefaultStyle ?? "");
+    const style = encodeURIComponent(
+      source.wmtsStyle ?? source.wmsDefaultStyle ?? "",
+    );
     return source.legendUrlTemplate
       .replace("{layer}", layer)
       .replace("{style}", style);
@@ -554,7 +669,9 @@ export const buildLegendUrl = (source: TileLayerSource, date: string) => {
 export const buildLegendJsonUrl = (source: TileLayerSource) => {
   if (!source.legendJsonUrlTemplate) return "";
   const layer = encodeURIComponent(source.layer);
-  const style = encodeURIComponent(source.wmtsStyle ?? source.wmsDefaultStyle ?? "");
+  const style = encodeURIComponent(
+    source.wmtsStyle ?? source.wmsDefaultStyle ?? "",
+  );
   return source.legendJsonUrlTemplate
     .replace("{layer}", layer)
     .replace("{style}", style);
@@ -587,7 +704,7 @@ export const buildGeoTiffUrl = (source: TileLayerSource, date: string) => {
   const monthIndex = Number(month) - 1;
   const monthName = new Date(Number(year), monthIndex, 1).toLocaleString(
     "en-US",
-    { month: "short" }
+    { month: "short" },
   );
   const paddedMonth = String(monthIndex + 1).padStart(2, "0");
   return source.urlTemplate

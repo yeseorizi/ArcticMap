@@ -5,8 +5,17 @@ import type { Dispatch, SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/components/LanguageProvider";
-import type { DatasetResponse, OverlaySource, TileLayerSource } from "@/lib/datasets";
-import { buildGeoTiffUrl, buildTileUrl, isGraticuleSource, buildWmsUrl } from "@/lib/datasets";
+import type {
+  DatasetResponse,
+  OverlaySource,
+  TileLayerSource,
+} from "@/lib/datasets";
+import {
+  buildGeoTiffUrl,
+  buildTileUrl,
+  isGraticuleSource,
+  buildWmsUrl,
+} from "@/lib/datasets";
 import {
   Select,
   SelectContent,
@@ -66,6 +75,8 @@ export default function DataLayersPanel({
         <span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] uppercase text-slate-300">
           {source.tileMatrixSet}
         </span>
+
+        {source.description}
       </div>
       <div className="mt-2 text-[11px] text-slate-400">
         <p>
@@ -75,11 +86,19 @@ export default function DataLayersPanel({
               ? buildGeoTiffUrl(source, sampleDate)
               : source.kind === "wms"
                 ? buildWmsUrl(source, sampleDate)
-              : buildTileUrl(source, sampleDate)}
+                : buildTileUrl(source, sampleDate)}
           </span>
         </p>
         <p className="mt-1">
-          {t("attributionLabel")}: {source.attribution}
+          {t("attributionLabel")} :{" "}
+          <a
+            href={source.infoUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sky-300 underline decoration-slate-600 underline-offset-2"
+          >
+            by {source.attribution}
+          </a>
         </p>
       </div>
     </li>
@@ -94,8 +113,10 @@ export default function DataLayersPanel({
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-sm font-semibold text-slate-200">{source.label}</p>
-            <p className="text-xs text-slate-500">Local graticule</p>
+            <p className="text-sm font-semibold text-slate-200">
+              {source.label}
+            </p>
+            <p className="text-xs text-slate-500">{source.description}</p>
           </div>
           <span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] uppercase text-slate-300">
             {source.latStep}° / {source.lonStep}°
@@ -114,7 +135,9 @@ export default function DataLayersPanel({
   };
 
   const renderOverlay = (source: OverlaySource) =>
-    isGraticuleSource(source) ? renderGraticuleLayer(source) : renderTileLayer(source);
+    isGraticuleSource(source)
+      ? renderGraticuleLayer(source)
+      : renderTileLayer(source);
   return (
     <Card>
       <CardHeader>
@@ -164,7 +187,6 @@ export default function DataLayersPanel({
           </Select>
 
           <div className="text-[11px] text-slate-500">
-            {t("info")}:{" "}
             {activeIceSource?.infoUrl ? (
               <a
                 href={activeIceSource.infoUrl}
@@ -172,7 +194,7 @@ export default function DataLayersPanel({
                 rel="noreferrer"
                 className="text-sky-300 underline decoration-slate-600 underline-offset-2"
               >
-                {activeIceSource.label}
+                by {activeIceSource.attribution}
               </a>
             ) : (
               <span>{t("selectDataToViewInfo")}</span>
@@ -210,9 +232,15 @@ export default function DataLayersPanel({
           </Select>
 
           <p className="text-[11px] text-slate-500">
-            {t("active")}:{" "}
             {activeBaseLayer ? (
-              activeBaseLayer.label
+              <a
+                href={activeBaseLayer.infoUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sky-300 underline decoration-slate-600 underline-offset-2"
+              >
+                by {activeBaseLayer.attribution}
+              </a>
             ) : (
               <span>{t("selectBasemapToViewInfo")}</span>
             )}
@@ -261,9 +289,8 @@ export default function DataLayersPanel({
             </CardHeader>
             <CardContent className="h-full overflow-y-auto space-y-6 text-xs text-slate-300 scrollbar-dark">
               <div>
-                <p className="text-[11px] text-slate-500">
-                  {t("active")}:{" "}
-                  {activeBaseLayer ? activeBaseLayer.label : "None"}
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                  {t("baseLayersLabel")}
                 </p>
 
                 <ul className="mt-2 space-y-3">

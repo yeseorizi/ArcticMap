@@ -450,7 +450,7 @@ export default function MapViewer({
     baseLayer.current = new TileLayer({
       source: createXyzSource("", undefined, tileGrid, projectionCode),
       opacity: 0.9,
-      preload: 2,
+      preload: 0,
       useInterimTilesOnError: true,
       className: "basemap-layer",
     });
@@ -751,7 +751,7 @@ export default function MapViewer({
       layer = new TileLayer({
         source,
         opacity: 0,
-        preload: 2,
+        preload: 0,
         useInterimTilesOnError: true,
         className: "ice-layer",
       });
@@ -777,7 +777,7 @@ export default function MapViewer({
       layer = new TileLayer({
         source,
         opacity: 0,
-        preload: 2,
+        preload: 0,
         useInterimTilesOnError: true,
         className: "ice-layer",
       });
@@ -917,12 +917,12 @@ export default function MapViewer({
         aria-label="Arctic sea ice map"
       />
 
-      <div className="absolute bottom-3 right-3 z-[1000] pointer-events-none rounded-md bg-slate-900/80 px-2 py-1 text-[11px] text-slate-200">
+      <div className="absolute bottom-3 right-3 z-[10] pointer-events-none rounded-md bg-slate-900/80 px-2 py-1 text-[11px] text-slate-200">
         {t("latitudeLabel")}: {cursorCoords ? cursorCoords.lat.toFixed(3) : "--"} /{" "}
         {t("longitudeLabel")}: {cursorCoords ? cursorCoords.lon.toFixed(3) : "--"}
       </div>
       {legendUrl ? (
-        <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-sm border border-slate-700/70 bg-slate-900/85 px-4 py-2 text-[10px] text-slate-200 shadow-md">
+        <div className="pointer-events-none absolute bottom-3 left-3 z-[10] rounded-sm border border-slate-700/70 bg-slate-900/85 px-4 py-2 text-[10px] text-slate-200 shadow-md">
           <div className="flex items-center justify-between gap-3 text-[10px] text-slate-300">
             <span className="uppercase text-slate-400">{t("legendLabel")}</span>
             {legendData?.units ? <span>{legendData.units}</span> : null}
