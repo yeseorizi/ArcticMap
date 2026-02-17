@@ -15,7 +15,6 @@ const CalendarSelector = dynamic(
   () => import("../components/CalendarSelector"),
   {
     ssr: false, //서버 렌더링(SSR)을 끄고, 브라우저에서만 로딩하게 만듦
-
   },
 );
 
@@ -49,8 +48,8 @@ export default function HomePage() {
   );
   const activeIceSource = iceSourceKey ? dataset?.iceSources[iceSourceKey] : undefined; 
   const activeBaseLayer = baseLayerKey
-  ? dataset?.baseLayers[baseLayerKey]
-  : undefined;
+    ? dataset?.baseLayers[baseLayerKey]
+    : undefined;
 
   useEffect(() => {
     if (!availableDates.length) return;
@@ -61,6 +60,12 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!activeIceSource) {
+      setAvailableDates(fallbackDates);
+      return;
+    }
+
+    const root = activeIceSource.wmsCatalogRoot;
+    if (!root) {
       setAvailableDates(fallbackDates);
       return;
     }
@@ -195,17 +200,11 @@ export default function HomePage() {
           </div>
           <div className="flex flex-1 items-center justify-end gap-4 text-xs text-slate-400">
             <LanguageSwitcher />
+            <span className="h-1 w-1 px-0.5 rounded-full bg-slate-600" />{" "}
             <span>
-              {t("sourceLabel")}:{" "}
-              {activeIceSource
-              ? activeIceSource.label
-              : t("selectDataToViewInfo")}
-              </span>
-
-            <span className="h-1 w-1 rounded-full bg-slate-600" />
-            <span>
-              {t("projectionLabel")}: {dataset?.mapConfig.projection ?? t("loading")}
-            </span>
+              {t("projectionLabel")}:{" "}
+              {dataset?.mapConfig.projection ?? t("loading")}
+            </span>{" "}
           </div>
         </header>
 
@@ -253,7 +252,7 @@ export default function HomePage() {
               </CardContent>
             </Card>
 
-            <MapViewer //실제 지도 
+            <MapViewer //실제 지도
               dataset={dataset}
               activeDate={activeDate}
               activeBaseLayer={activeBaseLayer}
