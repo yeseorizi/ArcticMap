@@ -21,7 +21,7 @@ import { Style, Stroke, Text, Fill } from "ol/style";
 import { unByKey } from "ol/Observable";
 import type MapBrowserEvent from "ol/MapBrowserEvent";
 import { Card } from "@/components/ui/card";
-import type { DatasetResponse, GraticuleSource,, TileLayerSource } from "@/lib/datasets";
+import type { DatasetResponse, GraticuleSource, TileLayerSource } from "@/lib/datasets";
 import { buildLegendJsonUrl, buildLegendMetaUrl, buildLegendUrl, buildTileUrl, isGraticuleSource } from "@/lib/datasets";
 import { useLanguage } from "@/components/LanguageProvider";
 
@@ -302,7 +302,6 @@ export default function MapViewer({
   const [iceReloadToken, setIceReloadToken] = useState(0);
   const [cursorCoords, setCursorCoords] = useState<{ lat: number; lon: number } | null>(null);
 
-  const { t } = useLanguage();
   const legendUrl =
     activeIceSource && activeDate ? buildLegendUrl(activeIceSource, activeDate) : "";
   const legendJsonUrl = activeIceSource ? buildLegendJsonUrl(activeIceSource) : "";
@@ -319,6 +318,7 @@ export default function MapViewer({
     units?: string;
     label?: string;
   } | null>(null);
+
   const { t } = useLanguage();
 
   const handleRetry = () => setIceReloadToken((value) => value + 1);
@@ -444,9 +444,7 @@ export default function MapViewer({
     const map = new OlMap({
       target: mapRef.current,
       view,
-      controls: defaultControls({ zoom: true, attribution: true }),
-      loadTilesWhileAnimating: false,
-      loadTilesWhileInteracting: false,
+      controls: defaultControls({ zoom: true, attribution: false }),
     });
 
     baseLayer.current = new TileLayer({
@@ -503,7 +501,7 @@ export default function MapViewer({
 
     mapInstance.current = map;
 
-    const updateCursorCoords = (coordinate: [number, number]) => {
+    const updateCursorCoords = (coordinate: number[]) => {
       const [lon, lat] = transform(coordinate, projectionCode, "EPSG:4326");
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
       const next = { lat: Number(lat.toFixed(3)), lon: Number(lon.toFixed(3)) };
@@ -513,14 +511,14 @@ export default function MapViewer({
       setCursorCoords(next);
     };
 
-    const handlePointerMove = (event: { coordinate: [number, number] }) => {
+    const handlePointerMove = (event: MapBrowserEvent<UIEvent>) => {
       updateCursorCoords(event.coordinate);
     };
 
     map.on("pointermove", handlePointerMove);
     const center = view.getCenter();
     if (center) {
-      updateCursorCoords(center as [number, number]);
+      updateCursorCoords(center);
     }
 
     map.once("postrender", () => {
@@ -924,7 +922,7 @@ export default function MapViewer({
         {t("longitudeLabel")}: {cursorCoords ? cursorCoords.lon.toFixed(3) : "--"}
       </div>
       {legendUrl ? (
-        <div className="pointer-events-none absolute bottom-3 left-1/2 z-[1000] -translate-x-1/2 rounded-full border border-slate-700/70 bg-slate-900/85 px-4 py-2 text-[10px] text-slate-200 shadow-md">
+        <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded-sm border border-slate-700/70 bg-slate-900/85 px-4 py-2 text-[10px] text-slate-200 shadow-md">
           <div className="flex items-center justify-between gap-3 text-[10px] text-slate-300">
             <span className="uppercase text-slate-400">{t("legendLabel")}</span>
             {legendData?.units ? <span>{legendData.units}</span> : null}
@@ -932,14 +930,14 @@ export default function MapViewer({
           {legendData ? (
             <div className="mt-1 w-[320px]">
               {legendData.gradient ? (
-                <div className="h-4 w-full rounded-full border border-slate-700/70 bg-slate-950/40 p-[2px]">
+                <div className="h-4 w-full rounded-md border border-slate-700/70 bg-slate-950/40 p-[2px]">
                   <div
-                    className="h-full w-full rounded-full"
+                    className="h-full w-full rounded-sm"
                     style={{ background: legendData.gradient }}
                   />
                 </div>
               ) : (
-                <div className="h-4 w-full rounded-full border border-slate-700/70 bg-slate-950/40 p-[2px]">
+                <div className="h-4 w-full rounded-md border border-slate-700/70 bg-slate-950/40 p-[2px]">
                   <div className="relative h-full w-full overflow-hidden rounded-full">
                     <img
                       src={legendUrl}
