@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { OverlaySource, TileLayerSource } from "@/lib/datasets";
-import { buildGeoTiffUrl, buildTileUrl, dataset as datasetData, isGraticuleSource, isTileLayerSource } from "@/lib/datasets";
+import type { GraticuleSource, OverlaySource, TileLayerSource } from "@/lib/datasets";
+import { buildGeoTiffUrl, buildTileUrl, dataset as datasetData, isGraticuleSource, isTileLayerSource, buildWmsUrl } from "@/lib/datasets";
 
 const getDateRange = (dates: string[]) => {
   if (dates.length === 0) {
@@ -39,24 +39,17 @@ export default function DataDebugPage() {
     Array<{ z: number; y: number; x: number }>
   >([]);
 
-  const dateOptions = useMemo(() => {
-    const today = new Date();
-    const make = (offset: number) => {
-      const value = new Date(today);
-      value.setDate(value.getDate() + offset);
-      return value.toISOString().slice(0, 10);
-    };
-
-    return {
-      today: make(0),
-      yesterday: make(-1),
-      weekAgo: make(-7)
-    };
-  }, []);
+  const availableDates = useMemo(() => {
+    const dates = dataset?.snapshots.map((snapshot) => snapshot.date) ?? [];
+    return dates.sort();
+  }, [dataset]);
 
   useEffect(() => {
-    setSelectedDate((current) => current || dateOptions.yesterday);
-  }, [dateOptions.yesterday]);
+    setSelectedDate((current) => {
+      if (current) return current;
+      return dataset?.defaults.defaultDate ?? availableDates[0] ?? "";
+    });
+  }, [dataset, availableDates]);
 
   const snapshotRange = useMemo(() => {
     const dates = dataset?.snapshots.map((snapshot) => snapshot.date) ?? [];
@@ -65,7 +58,7 @@ export default function DataDebugPage() {
 
   const activeIceSource = dataset?.iceSources[iceSourceKey];
   const activeBaseLayer = dataset?.baseLayers[baseLayerKey];
-  const sampleDate = selectedDate || dateOptions.yesterday;
+  const sampleDate = selectedDate || availableDates[0] || "";
 
   const previewSource = useMemo(() => {
     if (!dataset) return undefined;
@@ -83,17 +76,68 @@ export default function DataDebugPage() {
       .replace("{TileRow}", String(y))
       .replace("{TileCol}", String(x));
 
+
   const tileUrls = useMemo(() => {
-    if (!previewSource || !sampleDate || tileSamples.length === 0) return [];
-    if (!isTileLayerSource(previewSource)) return [];
-    const baseUrl =
-      previewSource.kind === "geotiff"
-        ? buildGeoTiffUrl(previewSource, sampleDate)
-        : buildTileUrl(previewSource, sampleDate);
+    if (
+      !previewSource ||
+      !sampleDate ||
+      tileSamples.length === 0 ||
+      !isTileLayerSource(previewSource) ||
+      previewSource.kind === "geotiff" ||
+      previewSource.kind === "wms"
+    ) {
+      return [];
+    }
+
+    const baseUrl = buildTileUrl(previewSource, sampleDate);
     return tileSamples.map(({ z, y, x }) => replaceCoords(baseUrl, z, y, x));
   }, [previewSource, sampleDate, tileSamples]);
 
-  const previewUrl = tileUrls[0] ?? "";
+  const previewUrl = useMemo(() => {
+    if (!previewSource || !sampleDate) return "";
+
+    if (previewSource.kind === "wms") {
+      const today = new Date().toISOString().slice(0, 10);
+      const useTime = previewSource.wmsTime !== false && sampleDate && sampleDate <= today;
+      const bounds = dataset?.mapConfig?.bounds;
+      const bbox =
+        bounds && dataset?.mapConfig?.projection === "EPSG:4326"
+          ? `${bounds[0][0]},${bounds[0][1]},${bounds[1][0]},${bounds[1][1]}`
+          : "-180,50,180,90";
+      const params = new URLSearchParams({
+        service: "WMS",
+        request: "GetMap",
+        version: "1.3.0",
+        layers: previewSource.layer,
+        styles: previewSource.wmsDefaultStyle ?? "",
+        crs: "CRS:84",
+        bbox,
+        width: "512",
+        height: "512",
+        format: "image/png",
+        transparent: "true",
+      });
+      if (useTime) {
+        params.set("time", `${sampleDate}T12:00:00.000Z`);
+      }
+      const baseUrl = buildWmsUrl(previewSource, sampleDate);
+      const joiner = baseUrl.includes("?") ? "&" : "?";
+      return `${baseUrl}${joiner}${params.toString()}`;
+    }
+
+    if (previewSource.kind === "geotiff") {
+      const rawUrl = buildGeoTiffUrl(previewSource, sampleDate);
+      return `/api/proxy?url=${encodeURIComponent(rawUrl)}`;
+    }
+
+    return tileUrls[0] ?? "";
+  }, [previewSource, sampleDate, tileUrls, dataset?.mapConfig.bounds, dataset?.mapConfig.projection]);
+
+  const previewUrls = useMemo(() => {
+    if (tileUrls.length > 0) return tileUrls;
+    if (previewUrl) return [previewUrl];
+    return [];
+  }, [tileUrls, previewUrl]);
 
   useEffect(() => {
     if (!previewSource) {
@@ -192,8 +236,7 @@ export default function DataDebugPage() {
     </li>
   );
 
-  const renderGraticuleLayer = (source: OverlaySource) => {
-    if (!isGraticuleSource(source)) return null;
+  const renderGraticuleLayer = (source: GraticuleSource) => {
     return (
       <li
         key={source.id}
@@ -218,9 +261,11 @@ export default function DataDebugPage() {
     );
   };
 
-  const renderOverlay = (source: OverlaySource) =>
-    isGraticuleSource(source) ? renderGraticuleLayer(source) : renderTileLayer(source);
-
+  const renderOverlay = (source: OverlaySource) => {
+    if (isGraticuleSource(source)) return renderGraticuleLayer(source);
+    if (isTileLayerSource(source)) return renderTileLayer(source);
+    return null;
+  };
   return (
     <main className="min-h-screen bg-[#0d1117] px-6 py-10 text-slate-100">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -311,15 +356,12 @@ export default function DataDebugPage() {
                     className="w-full rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs text-slate-200"
                     aria-label="Preview date"
                   >
-                    <option value={dateOptions.yesterday}>
-                      Yesterday · {dateOptions.yesterday}
-                    </option>
-                    <option value={dateOptions.today}>
-                      Today · {dateOptions.today}
-                    </option>
-                    <option value={dateOptions.weekAgo}>
-                      A week ago · {dateOptions.weekAgo}
-                    </option>
+                  <option value={availableDates[0]}>
+                    Earliest · {availableDates[0] ?? "N/A"}
+                  </option>
+                  <option value={availableDates[availableDates.length - 1]}>
+                    Latest · {availableDates[availableDates.length - 1] ?? "N/A"}
+                  </option>
                   </select>
                 </label>
               </div>
@@ -327,8 +369,8 @@ export default function DataDebugPage() {
               <div className="rounded-md border border-slate-800 bg-slate-900/60 p-3">
                 <p className="text-[11px] text-slate-500">Preview URLs</p>
                 <div className="mt-1 space-y-2 text-[12px] text-slate-200">
-                  {tileUrls.length > 0 ? (
-                    tileUrls.map((url, index) => (
+                  {previewUrls.length > 0 ? (
+                    previewUrls.map((url, index) => (
                       <p key={`${url}-${index}`} className="break-all">
                         {url}
                       </p>
@@ -369,9 +411,9 @@ export default function DataDebugPage() {
                 </div>
               ) : null}
 
-              {tileUrls.length > 0 ? (
+              {previewUrls.length > 0 ? (
                 <div className="grid gap-3 md:grid-cols-3">
-                  {tileUrls.map((url, index) => (
+                  {previewUrls.map((url, index) => (
                     <div
                       key={`${url}-${index}`}
                       className="overflow-hidden rounded-md border border-slate-800 bg-slate-950"
@@ -383,7 +425,9 @@ export default function DataDebugPage() {
                         loading="lazy"
                       />
                       <div className="border-t border-slate-800 px-3 py-2 text-[11px] text-slate-400">
-                        z={tileSamples[index]?.z} · y={tileSamples[index]?.y} · x={tileSamples[index]?.x}
+                        {previewSource?.kind === "wms"
+                          ? "wms preview"
+                          : `z=${tileSamples[index]?.z} · y=${tileSamples[index]?.y} · x=${tileSamples[index]?.x}`}
                       </div>
                     </div>
                   ))}

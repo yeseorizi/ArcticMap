@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/components/LanguageProvider";
 import type { DatasetResponse, OverlaySource, TileLayerSource } from "@/lib/datasets";
-import { buildGeoTiffUrl, buildTileUrl, isGraticuleSource } from "@/lib/datasets";
+import { buildGeoTiffUrl, buildTileUrl, isGraticuleSource, buildWmsUrl } from "@/lib/datasets";
 import {
   Select,
   SelectContent,
@@ -73,6 +73,8 @@ export default function DataLayersPanel({
           <span className="break-all text-slate-300">
             {source.kind === "geotiff"
               ? buildGeoTiffUrl(source, sampleDate)
+              : source.kind === "wms"
+                ? buildWmsUrl(source, sampleDate)
               : buildTileUrl(source, sampleDate)}
           </span>
         </p>
@@ -135,7 +137,7 @@ export default function DataLayersPanel({
           <p className="text-slate-300">{t("iceConcentration")}</p>
           <Select
             value={iceSourceKey || "__none__"}
-            onValueChange={(value) =>
+            onValueChange={(value: string) =>
               setIceSourceKey(value === "__none__" ? "" : value)
             }
           >
@@ -181,7 +183,7 @@ export default function DataLayersPanel({
           <p className="text-slate-300">{t("baseMap")}</p>
           <Select
             value={baseLayerKey || "__none__"}
-            onValueChange={(value) =>
+            onValueChange={(value: string) =>
               setBaseLayerKey(value === "__none__" ? "" : value)
             }
           >
