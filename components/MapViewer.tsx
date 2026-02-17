@@ -19,6 +19,7 @@ import LineString from "ol/geom/LineString";
 import Point from "ol/geom/Point";
 import { Style, Stroke, Text, Fill } from "ol/style";
 import { unByKey } from "ol/Observable";
+import type MapBrowserEvent from "ol/MapBrowserEvent";
 import { Card } from "@/components/ui/card";
 import type { DatasetResponse, GraticuleSource, TileLayerSource } from "@/lib/datasets";
 import { buildTileUrl, isGraticuleSource } from "@/lib/datasets";
@@ -264,11 +265,16 @@ export default function MapViewer({
   const coastLayer = useRef<TileLayer<XYZ> | null>(null);
   const graticuleLayer = useRef<GraticuleLayer | null>(null);
   const iceLayer = useRef<TileLayer<XYZ | TileWMS> | null>(null);
+  const cursorCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
+      
+      
   const [iceStatus, setIceStatus] = useState<{
     state: "idle" | "loading" | "ready" | "error";
     message?: string;
   }>({ state: "idle" });
   const [iceReloadToken, setIceReloadToken] = useState(0);
+  const [cursorCoords, setCursorCoords] = useState<{ lat: number; lon: number } | null>(null);
+
   const { t } = useLanguage();
 
   const handleRetry = () => setIceReloadToken((value) => value + 1);
@@ -281,6 +287,39 @@ export default function MapViewer({
   ) => {
     if (!overlay || !date || isGraticuleSource(overlay)) return "";
     return buildTileUrl(overlay, date);
+  };
+
+  const resolveWmsProjection = (source: TileLayerSource, mapProjection: string) => {
+    const supported = (source.wmsCrs ?? []).map((value) => value.toUpperCase());
+    if (supported.length === 0 || supported.includes(mapProjection.toUpperCase())) {
+      return mapProjection;
+    }
+    if (supported.includes("EPSG:3857")) {
+      return "EPSG:3857";
+    }
+    if (supported.includes("EPSG:4326") || supported.includes("CRS:84")) {
+      return "EPSG:4326";
+    }
+    return mapProjection;
+  };
+
+  const buildWmsParams = (source: TileLayerSource, date: string) => {
+    const params: Record<string, string> = {
+      LAYERS: source.layer,
+      FORMAT: "image/png",
+      TRANSPARENT: "true",
+      VERSION: "1.3.0",
+      STYLES: source.wmsDefaultStyle ?? "",
+    };
+
+    if (date && source.wmsTime !== false) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (date <= today) {
+        params.TIME = `${date}T12:00:00.000Z`;
+      }
+    }
+
+    return params;
   };
 
   useEffect(() => {
@@ -324,6 +363,8 @@ export default function MapViewer({
     baseLayer.current = new TileLayer({
       source: createXyzSource("", undefined, tileGrid, projectionCode),
       opacity: 0.9,
+      preload: 2,
+      useInterimTilesOnError: true,
       className: "basemap-layer",
     });
     baseLayer.current.setZIndex(10);
@@ -373,12 +414,34 @@ export default function MapViewer({
 
     mapInstance.current = map;
 
+    const updateCursorCoords = (coordinate: number[]) => {
+      const [x, y] = coordinate;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      const [lon, lat] = transform([x, y], projectionCode, "EPSG:4326");
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+      const next = { lat: Number(lat.toFixed(3)), lon: Number(lon.toFixed(3)) };
+      const prev = cursorCoordsRef.current;
+      if (prev && prev.lat === next.lat && prev.lon === next.lon) return;
+      cursorCoordsRef.current = next;
+      setCursorCoords(next);
+    };
+
+    const handlePointerMove = (event: MapBrowserEvent<UIEvent>) => {
+      updateCursorCoords(event.coordinate);
+    };
+
+    map.on("pointermove", handlePointerMove);
+    const center = view.getCenter();
+    if (center) {
+      updateCursorCoords(center);
+    }
+
     map.once("postrender", () => {
       map.getView().fit(extent, { size: map.getSize(), duration: 0 });
     });
 
     return () => {
-      unByKey(zoomKey);
+      map.un("pointermove", handlePointerMove);
       map.setTarget(undefined);
       mapInstance.current = null;
       tileGridRef.current = null;
@@ -462,31 +525,46 @@ export default function MapViewer({
     const map = mapInstance.current;
     if (!map || !dataset) return;
 
-    if (iceLayer.current) {
-      map.removeLayer(iceLayer.current);
-      iceLayer.current = null;
-    }
+    const previousLayer = iceLayer.current;
 
     if (!iceLayerUrl || !activeIceSource) {
+      if (previousLayer) {
+        map.removeLayer(previousLayer);
+        iceLayer.current = null;
+      }
       setIceStatus({ state: "idle" });
       return;
     }
 
     setIceStatus({ state: "loading" });
 
-    const detachEvents = (source: TileWMS | XYZ) => {
-      source.un("tileloadstart", setLoadingStatus);
-      source.un("tileloadend", onTileLoadEnd);
-      source.un("tileloaderror", onTileLoadError);
-    };
-
-    const onTileLoadEnd = () => setIceStatus({ state: "ready" });
-    const onTileLoadError = () =>
-      setIceStatus({ state: "error", message: "tile load failed" });
+    const iceOpacity = activeIceSource.opacity ?? 0.75;
+    const holdPrevious = Boolean(previousLayer);
 
     let layer: TileLayer<XYZ | TileWMS> | null = null;
     let source: TileWMS | XYZ | null = null;
+    let pendingTiles = 0;
+    let hadError = false;
+    let readyTimer: ReturnType<typeof setTimeout> | null = null;
+    let isFinalized = false;
 
+    const finalizeLayer = () => {
+      if (!layer || isFinalized) return;
+      isFinalized = true;
+      layer.setOpacity(iceOpacity);
+      if (previousLayer && holdPrevious) {
+        map.removeLayer(previousLayer);
+      }
+      iceLayer.current = layer;
+    };
+
+    const markReadyIfIdle = () => {
+      if (pendingTiles === 0 && !hadError) {
+        setIceStatus({ state: "ready" });
+        finalizeLayer();
+      }
+    };
+      
     if (activeIceSource.kind === "wms") {
       const mapProjection = dataset.mapConfig.projection;
       const supported = (activeIceSource.wmsCrs ?? []).map((value) => value.toUpperCase());
@@ -499,21 +577,37 @@ export default function MapViewer({
           wmsProjection = "EPSG:4326";
         }
       }
+    };
 
-      const params: Record<string, string> = {
-        LAYERS: activeIceSource.layer,
-        FORMAT: "image/png",
-        TRANSPARENT: "true",
-        VERSION: "1.3.0",
-        STYLES: activeIceSource.wmsDefaultStyle ?? "",
-      };
+    const onTileLoadStart = () => {
+      pendingTiles += 1;
+      setLoadingStatus();
+    };
 
-      if (activeDate && activeIceSource.wmsTime !== false) {
-        const today = new Date().toISOString().slice(0, 10);
-        if (activeDate <= today) {
-          params.TIME = `${activeDate}T12:00:00.000Z`;
-        }
+    const onTileLoadEnd = () => {
+      pendingTiles = Math.max(0, pendingTiles - 1);
+      markReadyIfIdle();
+    };
+
+    const onTileLoadError = () => {
+      pendingTiles = Math.max(0, pendingTiles - 1);
+      hadError = true;
+      setIceStatus({ state: "error", message: "tile load failed" });
+      if (layer && !isFinalized) {
+        map.removeLayer(layer);
       }
+    };
+
+    const detachEvents = (source: TileWMS | XYZ) => {
+      source.un("tileloadstart", onTileLoadStart);
+      source.un("tileloadend", onTileLoadEnd);
+      source.un("tileloaderror", onTileLoadError);
+    };
+
+    if (activeIceSource.kind === "wms") {
+      const mapProjection = dataset.mapConfig.projection;
+      const wmsProjection = resolveWmsProjection(activeIceSource, mapProjection);
+      const params = buildWmsParams(activeIceSource, activeDate);
 
       const tileGrid =
         wmsProjection === dataset.mapConfig.projection && tileGridRef.current
@@ -534,7 +628,9 @@ export default function MapViewer({
 
       layer = new TileLayer({
         source,
-        opacity: activeIceSource.opacity ?? 0.75,
+        opacity: 0,
+        preload: 2,
+        useInterimTilesOnError: true,
         className: "ice-layer",
       });
     } else if (activeIceSource.kind === "geotiff") {
@@ -552,26 +648,38 @@ export default function MapViewer({
 
       layer = new TileLayer({
         source,
-        opacity: activeIceSource.opacity ?? 0.75,
+        opacity: 0,
+        preload: 2,
+        useInterimTilesOnError: true,
         className: "ice-layer",
       });
     }
 
     if (layer && source) {
-      source.on("tileloadstart", setLoadingStatus);
+      source.on("tileloadstart", onTileLoadStart);
       source.on("tileloadend", onTileLoadEnd);
       source.on("tileloaderror", onTileLoadError);
 
       layer.setZIndex(20);
       map.addLayer(layer);
-      iceLayer.current = layer;
+      if (!holdPrevious) {
+        iceLayer.current = layer;
+      }
+      readyTimer = setTimeout(markReadyIfIdle, 300);
 
-      return () => detachEvents(source!);
+      return () => {
+        detachEvents(source);
+        if (readyTimer) clearTimeout(readyTimer);
+        if (layer && iceLayer.current !== layer) {
+          map.removeLayer(layer);
+        }
+      };
     }
   }, [dataset, iceLayerUrl, activeIceSource, activeDate, iceReloadToken]);
 
   useEffect(() => {
-    if (iceLayer.current && activeIceSource?.opacity !== undefined) {
+    if (activeIceSource?.opacity === undefined) return;
+    if (iceLayer.current) {
       iceLayer.current.setOpacity(activeIceSource.opacity);
     }
   }, [activeIceSource?.opacity]);
@@ -583,6 +691,11 @@ export default function MapViewer({
         className="h-[655px] w-full bg-slate-900"
         aria-label="Arctic sea ice map"
       />
+
+      <div className="absolute bottom-3 right-3 z-[1000] pointer-events-none rounded-md bg-slate-900/80 px-2 py-1 text-[11px] text-slate-200">
+        {t("latitudeLabel")}: {cursorCoords ? cursorCoords.lat.toFixed(3) : "--"} /{" "}
+        {t("longitudeLabel")}: {cursorCoords ? cursorCoords.lon.toFixed(3) : "--"}
+      </div>
 
       <div className="absolute left-4 top-4 z-[1000] rounded-md bg-slate-900/80 px-3 py-2 text-[11px] text-slate-300">
         <div>
