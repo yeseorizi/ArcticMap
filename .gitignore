@@ -7,3 +7,5 @@ package-lock.json
 forge-out/
 out/
 .DS_Store
+
+*.tsbuildinfo
