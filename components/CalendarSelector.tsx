@@ -11,6 +11,8 @@ interface CalendarSelectorProps {
   availableDates: string[];
   activeDate: string;
   setActiveDate: Dispatch<SetStateAction<string>>;
+  isDatesLoading: boolean;
+  cachedLoadedDates: string[];
   isPlaying: boolean;
   setIsPlaying: Dispatch<SetStateAction<boolean>>;
   playbackSpeed: number;
@@ -44,6 +46,8 @@ export default function CalendarSelector({
   availableDates,
   activeDate,
   setActiveDate,
+  isDatesLoading,
+  cachedLoadedDates,
   isPlaying,
   setIsPlaying,
   playbackSpeed,
@@ -51,6 +55,7 @@ export default function CalendarSelector({
 }: CalendarSelectorProps) {
   const { t, messages, locale } = useLanguage();
   const datesSet = useMemo(() => new Set(availableDates), [availableDates]);
+  const cachedDatesSet = useMemo(() => new Set(cachedLoadedDates), [cachedLoadedDates]);
   const datesIndex = useMemo(
     () => new Map(availableDates.map((date, index) => [date, index])),
     [availableDates],
@@ -208,38 +213,49 @@ export default function CalendarSelector({
             </select>
           </label>
         </div>
-        <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-slate-400">
-          {messages.weekdaysShort.map((day) => (
-            <div key={day} className="py-1 font-semibold">
-              {day}
-            </div>
-          ))}
-          {calendarDays.map((day, index) => {
-            const dateKey = day ? toDateKey(viewMonth.year, viewMonth.month, day) : "";
-            const isActive = day !== null && dateKey === activeDate;
-            const matchesSnapshot = day !== null && datesSet.has(dateKey);
-            return (
-              <Button
-                key={`${dateKey || "empty"}-${index}`}
-                type="button"
-                className={`h-7 rounded border text-[11px] transition-colors ${
-                  day === null
-                    ? "border-transparent bg-transparent"
-                    : isActive
-                      ? "border-sky-400 bg-sky-500/20 text-white"
-                      : matchesSnapshot
-                        ? "border-slate-600 bg-slate-800 text-slate-200 hover:border-sky-400"
-                        : "border-slate-700/40 bg-slate-900/40 text-slate-500"
-                }`}
-                onClick={() => {
-                  if (!matchesSnapshot) return;
-                  setActiveDate(dateKey);
-                }}
-              >
-                {day ?? ""}
-              </Button>
-            );
-          })}
+        <div
+          className={`rounded-md border p-1 transition-all duration-300 ${
+            isDatesLoading
+              ? "border-slate-200/40 shadow-[0_0_14px_rgba(248,250,252,0.25)] animate-pulse"
+              : "border-slate-800/80"
+          }`}
+        >
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-slate-400">
+            {messages.weekdaysShort.map((day) => (
+              <div key={day} className="py-1 font-semibold">
+                {day}
+              </div>
+            ))}
+            {calendarDays.map((day, index) => {
+              const dateKey = day ? toDateKey(viewMonth.year, viewMonth.month, day) : "";
+              const isActive = day !== null && dateKey === activeDate;
+              const matchesSnapshot = day !== null && datesSet.has(dateKey);
+              const isCachedDate = day !== null && cachedDatesSet.has(dateKey);
+              return (
+                <Button
+                  key={`${dateKey || "empty"}-${index}`}
+                  type="button"
+                  className={`h-7 rounded border text-[11px] transition-colors ${
+                    day === null
+                      ? "border-transparent bg-transparent"
+                      : isActive
+                        ? "border-sky-400 bg-sky-500/20 text-white"
+                        : matchesSnapshot
+                          ? isCachedDate
+                            ? "border-slate-600 bg-slate-800 text-emerald-500 hover:border-sky-400"
+                            : "border-slate-600 bg-slate-800 text-slate-200 hover:border-sky-400"
+                          : "border-slate-700/40 bg-slate-900/40 text-slate-500"
+                  }`}
+                  onClick={() => {
+                    if (!matchesSnapshot) return;
+                    setActiveDate(dateKey);
+                  }}
+                >
+                  {day ?? ""}
+                </Button>
+              );
+            })}
+          </div>
         </div>
         <div className="space-y-3">
           <Button
