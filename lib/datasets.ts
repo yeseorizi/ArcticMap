@@ -621,8 +621,8 @@ export const dataset: DatasetResponse = {
     22, 23, 24, 25, 26, 27, 28,
   ],
   defaults: {
-    baseLayerKey: "",
-    iceSourceKey: "",
+    baseLayerKey: "blueMarbleBathymetry",
+    iceSourceKey: "ASMR2OsiSafIceConc",
     showCoastlines: true,
     showGraticule: true,
     defaultDate: "2026-02-08",
