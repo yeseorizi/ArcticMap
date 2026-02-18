@@ -78,7 +78,7 @@ export const messages = {
     showCoastlines: "해안선 표시 (NASA GIBS)",
     showGraticule: "극지 격자 표시",
     dateSelector: "날짜 선택",
-    dateSelectorHint: "화살표로 날짜를 이동하고, 아래 드롭다운으로 달을 바꾸세요.",
+    dateSelectorHint: "화살표로 날짜를 이동 가능합니다",
     monthLabel: "2026년 1월",
     previous: "이전",
     next: "다음",
