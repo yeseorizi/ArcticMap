@@ -57,51 +57,74 @@ export default function DataLayersPanel({
   const { t } = useLanguage();
   const resolvedTitle = title ?? t("dataAndLayers");
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const [openCatalogItems, setOpenCatalogItems] = useState<Record<string, boolean>>({});
   const sampleDate =
     dataset?.defaults.defaultDate ?? dataset?.snapshots?.[0]?.date ?? "";
+
+  const toggleCatalogItem = (id: string) => {
+    setOpenCatalogItems((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const isCatalogItemOpen = (id: string) => Boolean(openCatalogItems[id]);
 
   const renderTileLayer = (source: TileLayerSource) => (
     <li
       key={source.id}
       className="rounded-md border border-slate-800 bg-slate-900/60 p-3"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="space-y-1">
           <p className="text-sm font-semibold text-slate-200">{source.label}</p>
-          <p className="text-xs text-slate-500">
-            {t("layerIdLabel")}: {source.layer}
+          <p className="text-[11px] text-slate-400">
+            {t("attributionLabel")}:{" "}
+            {source.infoUrl ? (
+              <a
+                href={source.infoUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sky-300 underline decoration-slate-600 underline-offset-2"
+              >
+                by {source.attribution}
+              </a>
+            ) : (
+              <span>{source.attribution}</span>
+            )}
           </p>
         </div>
-        <span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] uppercase text-slate-300">
-          {source.tileMatrixSet}
-        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7 border-slate-700 bg-transparent px-2 text-[11px] text-slate-300"
+          onClick={() => toggleCatalogItem(source.id)}
+        >
+          {isCatalogItemOpen(source.id)
+            ? t("hideDetails")
+            : t("showDetails")}
+        </Button>
       </div>
-      <div className="w-full mt-2">
-        {source.description}
-      </div>
-      <div className="mt-2 text-[11px] text-slate-400">
-        <p>
-          {t("sampleUrlLabel")}:{" "}
-          <span className="break-all text-slate-300">
-            {source.kind === "geotiff"
-              ? buildGeoTiffUrl(source, sampleDate)
-              : source.kind === "wms"
-                ? buildWmsUrl(source, sampleDate)
-                : buildTileUrl(source, sampleDate)}
-          </span>
-        </p>
-        <p className="mt-1">
-          {t("attributionLabel")} :{" "}
-          <a
-            href={source.infoUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sky-300 underline decoration-slate-600 underline-offset-2"
-          >
-            by {source.attribution}
-          </a>
-        </p>
-      </div>
+      {isCatalogItemOpen(source.id) && (
+        <div className="mt-2 space-y-2 text-[11px] text-slate-400">
+          <p>
+            {t("layerIdLabel")}: {source.layer}
+          </p>
+          <p>
+            Tile Matrix Set:{" "}
+            <span className="text-slate-300">{source.tileMatrixSet}</span>
+          </p>
+          <p>{source.description}</p>
+          <p>
+            {t("sampleUrlLabel")}:{" "}
+            <span className="break-all text-slate-300">
+              {source.kind === "geotiff"
+                ? buildGeoTiffUrl(source, sampleDate)
+                : source.kind === "wms"
+                  ? buildWmsUrl(source, sampleDate)
+                  : buildTileUrl(source, sampleDate)}
+            </span>
+          </p>
+        </div>
+      )}
     </li>
   );
 
@@ -112,25 +135,38 @@ export default function DataLayersPanel({
         key={source.id}
         className="rounded-md border border-slate-800 bg-slate-900/60 p-3"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="space-y-1">
             <p className="text-sm font-semibold text-slate-200">
               {source.label}
             </p>
-            <p className="text-xs text-slate-500">{source.description}</p>
+            <p className="text-[11px] text-slate-400">
+              {t("attributionLabel")}: {source.attribution}
+            </p>
           </div>
-          <span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] uppercase text-slate-300">
-            {source.latStep}° / {source.lonStep}°
-          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 border-slate-700 bg-transparent px-2 text-[11px] text-slate-300"
+            onClick={() => toggleCatalogItem(source.id)}
+          >
+            {isCatalogItemOpen(source.id)
+              ? t("hideDetails")
+              : t("showDetails")}
+          </Button>
         </div>
-        <div className="mt-2 text-[11px] text-slate-400">
-          <p>
-            Extent: {source.minLat}° to {source.maxLat}°
-          </p>
-          <p className="mt-1">
-            {t("attributionLabel")}: {source.attribution}
-          </p>
-        </div>
+        {isCatalogItemOpen(source.id) && (
+          <div className="mt-2 space-y-2 text-[11px] text-slate-400">
+            <p>{source.description}</p>
+            <p>
+              Step: {source.latStep}° / {source.lonStep}°
+            </p>
+            <p>
+              Extent: {source.minLat}° to {source.maxLat}°
+            </p>
+          </div>
+        )}
       </li>
     );
   };
