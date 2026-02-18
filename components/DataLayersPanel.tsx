@@ -75,7 +75,8 @@ export default function DataLayersPanel({
         <span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] uppercase text-slate-300">
           {source.tileMatrixSet}
         </span>
-
+      </div>
+      <div className="w-full mt-2">
         {source.description}
       </div>
       <div className="mt-2 text-[11px] text-slate-400">

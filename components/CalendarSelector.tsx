@@ -34,6 +34,8 @@ const buildCalendar = (year: number, month: number) => {
   const cells: Array<number | null> = [];
   for (let i = 0; i < startDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  // Keep a 5-row baseline height; 6th row appears only for months that need it.
+  while (cells.length < 35) cells.push(null);
   while (cells.length % 7 !== 0) cells.push(null);
   return cells;
 };
@@ -257,10 +259,10 @@ export default function CalendarSelector({
             </div>
             <Slider
               value={[playbackSpeed]}
-              min={3500}
+              min={500}
               max={5000}
-              step={250}
-              onValueChange={(value) => setPlaybackSpeed(value[0] ?? 3500)}
+              step={500}
+              onValueChange={(value) => setPlaybackSpeed(value[0] ?? 2000)}
               aria-label={t("animationSpeed")}
             />
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import DataLayersPanel from "@/components/DataLayersPanel";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
@@ -18,17 +18,43 @@ const CalendarSelector = dynamic(
   },
 );
 
+const pad2 = (value: number) => String(value).padStart(2, "0");
+
+const toLocalDateKey = (value: Date) =>
+  `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`;
+
+const getLocalYesterdayKey = () => {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return toLocalDateKey(yesterday);
+};
+
+const pickDefaultDate = (dates: string[], fallback = "") => {
+  if (dates.length === 0) return fallback;
+  const sorted = [...dates].sort();
+  const yesterdayKey = getLocalYesterdayKey();
+  const atOrBeforeYesterday = sorted.filter((date) => date <= yesterdayKey);
+  if (atOrBeforeYesterday.length > 0) {
+    return atOrBeforeYesterday[atOrBeforeYesterday.length - 1];
+  }
+  return sorted[sorted.length - 1];
+};
+
 export default function HomePage() {
   const dataset = datasetData; //정적 데이터 사용
+  const snapshotDates = (dataset?.snapshots ?? []).map((snapshot) => snapshot.date).sort();
   const [activeDate, setActiveDate] = useState<string>(
-    () => dataset.defaults.defaultDate ?? dataset.snapshots?.[0]?.date ?? ""
+    () => pickDefaultDate(snapshotDates, dataset.defaults.defaultDate ?? "")
   );
   const [isPlaying, setIsPlaying] = useState(false); // isplaying: 재생 중인지 여부 
-  const [playbackSpeed, setPlaybackSpeed] = useState(3500); //palyback speed: 날짜 넘어가는 속도 ㅡ> 날짜 애니메이션 플레이어 
+  const [playbackSpeed, setPlaybackSpeed] = useState(2000); //palyback speed: 날짜 넘어가는 속도 ㅡ> 날짜 애니메이션 플레이어 
   const [baseLayerKey, setBaseLayerKey] = useState<string>(
     () => dataset.defaults.baseLayerKey
   );
   const [iceSourceKey, setIceSourceKey] = useState<string>(
+    () => dataset.defaults.iceSourceKey
+  );
+  const [appliedIceSourceKey, setAppliedIceSourceKey] = useState<string>(
     () => dataset.defaults.iceSourceKey
   );
   const [showCoastlines, setShowCoastlines] = useState(dataset.defaults.showCoastlines); //해안선 표시 위경도 격자 표시여부 
@@ -41,12 +67,16 @@ export default function HomePage() {
     [dataset],
   );
   const [availableDates, setAvailableDates] = useState<string[]>(() => fallbackDates);
+  const datesCacheRef = useRef(new Map<string, string[]>());
 
   const activeSnapshot = useMemo(
     () => (dataset?.snapshots ?? []).find((snapshot) => snapshot.date === activeDate) ?? null,
     [dataset, activeDate],
   );
-  const activeIceSource = iceSourceKey ? dataset?.iceSources[iceSourceKey] : undefined; 
+  const selectedIceSource = iceSourceKey ? dataset?.iceSources[iceSourceKey] : undefined;
+  const activeIceSource = appliedIceSourceKey
+    ? dataset?.iceSources[appliedIceSourceKey]
+    : undefined;
   const activeBaseLayer = baseLayerKey
     ? dataset?.baseLayers[baseLayerKey]
     : undefined;
@@ -54,27 +84,51 @@ export default function HomePage() {
   useEffect(() => {
     if (!availableDates.length) return;
     if (!availableDates.includes(activeDate)) {
-      setActiveDate(availableDates[availableDates.length - 1]);
+      setActiveDate(pickDefaultDate(availableDates, availableDates[availableDates.length - 1]));
     }
   }, [availableDates, activeDate]);
 
   useEffect(() => {
-    if (!activeIceSource) {
-      setAvailableDates(fallbackDates);
-      return;
-    }
-
-    const root = activeIceSource.wmsCatalogRoot;
-    if (!root) {
-      setAvailableDates(fallbackDates);
-      return;
-    }
-
     const controller = new AbortController();
+    const requestedKey = iceSourceKey;
+    const requestedSource = requestedKey
+      ? dataset?.iceSources[requestedKey]
+      : undefined;
+
+    const applyWithDates = (dates: string[], preserveCurrent = true) => {
+      if (controller.signal.aborted) return;
+      const sortedDates = [...dates].sort();
+      setAvailableDates(sortedDates);
+      setActiveDate((current) =>
+        preserveCurrent && sortedDates.includes(current)
+          ? current
+          : pickDefaultDate(sortedDates, sortedDates[sortedDates.length - 1] ?? ""),
+      );
+      setAppliedIceSourceKey(requestedKey);
+    };
+
+    if (!requestedSource) {
+      applyWithDates(fallbackDates, false);
+      return () => controller.abort();
+    }
+
+    const cacheKey =
+      requestedSource.kind === "wmts" && requestedSource.wmtsCapabilitiesUrl
+        ? `wmts:${requestedSource.wmtsCapabilitiesUrl}`
+        : requestedSource.kind === "wms" && requestedSource.wmsCatalogRoot
+          ? `wms:${requestedSource.wmsCatalogRoot}`
+          : `fallback:${requestedSource.id}`;
+
+    const cachedDates = datesCacheRef.current.get(cacheKey);
+    if (cachedDates && cachedDates.length > 0) {
+      applyWithDates(cachedDates);
+      return () => controller.abort();
+    }
+
     const loadDates = async () => {
-      if (activeIceSource.kind === "wms" && activeIceSource.wmsCatalogRoot) {
+      if (requestedSource.kind === "wms" && requestedSource.wmsCatalogRoot) {
         try {
-          const params = new URLSearchParams({ root: activeIceSource.wmsCatalogRoot });
+          const params = new URLSearchParams({ root: requestedSource.wmsCatalogRoot });
           const res = await fetch(`/api/wmsdates?${params.toString()}`, {
             signal: controller.signal,
           });
@@ -83,23 +137,25 @@ export default function HomePage() {
           }
           const data = (await res.json()) as { dates?: string[] };
           if (Array.isArray(data.dates) && data.dates.length > 0) {
-            setAvailableDates([...data.dates].sort());
+            const sortedDates = [...data.dates].sort();
+            datesCacheRef.current.set(cacheKey, sortedDates);
+            applyWithDates(sortedDates);
             return;
           }
         } catch (e) {
-          if (!controller.signal.aborted) {
-            console.warn("[dates] WMS catalog load failed", e);
-          }
+          if (controller.signal.aborted) return;
+          console.warn("[dates] WMS catalog load failed", e);
         }
-        setAvailableDates(fallbackDates);
+        datesCacheRef.current.set(cacheKey, fallbackDates);
+        applyWithDates(fallbackDates);
         return;
       }
 
-      if (activeIceSource.kind === "wmts" && activeIceSource.wmtsCapabilitiesUrl) {
+      if (requestedSource.kind === "wmts" && requestedSource.wmtsCapabilitiesUrl) {
         try {
           const params = new URLSearchParams({
-            url: activeIceSource.wmtsCapabilitiesUrl,
-            layer: activeIceSource.layer,
+            url: requestedSource.wmtsCapabilitiesUrl,
+            layer: requestedSource.layer,
           });
           const res = await fetch(`/api/wmtsdates?${params.toString()}`, {
             signal: controller.signal,
@@ -109,25 +165,28 @@ export default function HomePage() {
           }
           const data = (await res.json()) as { dates?: string[] };
           if (Array.isArray(data.dates) && data.dates.length > 0) {
-            setAvailableDates([...data.dates].sort());
+            const sortedDates = [...data.dates].sort();
+            datesCacheRef.current.set(cacheKey, sortedDates);
+            applyWithDates(sortedDates);
             return;
           }
         } catch (e) {
-          if (!controller.signal.aborted) {
-            console.warn("[dates] WMTS capabilities load failed", e);
-          }
+          if (controller.signal.aborted) return;
+          console.warn("[dates] WMTS capabilities load failed", e);
         }
-        setAvailableDates(fallbackDates);
+        datesCacheRef.current.set(cacheKey, fallbackDates);
+        applyWithDates(fallbackDates);
         return;
       }
 
-      setAvailableDates(fallbackDates);
+      datesCacheRef.current.set(cacheKey, fallbackDates);
+      applyWithDates(fallbackDates);
     };
 
     void loadDates();
 
     return () => controller.abort();
-  }, [activeIceSource, fallbackDates]);
+  }, [dataset, fallbackDates, iceSourceKey]);
 
   const baseLayerUrl = useMemo(() => { //매우 중요: z,x,y 형태 타일 url 생성, 날짜가 필요한 wmts 여기서 처리 
     if (!activeBaseLayer || !activeDate) return "";
@@ -230,7 +289,7 @@ export default function HomePage() {
               setShowCoastlines={setShowCoastlines}
               showGraticule={showGraticule}
               setShowGraticule={setShowGraticule}
-              activeIceSource={activeIceSource}
+              activeIceSource={selectedIceSource}
               activeBaseLayer={activeBaseLayer}
             />
           </aside>
