@@ -550,17 +550,34 @@ export default function MapViewer({
       return;
     }
 
+    const sourceProjection =
+      activeBaseLayer?.sourceProjection ?? dataset.mapConfig.projection;
+    const tileGrid = resolveTileGrid(sourceProjection, activeBaseLayer?.tileSize);
+    if (!tileGrid) return;
+    const reprojectionErrorThreshold =
+      sourceProjection !== dataset.mapConfig.projection ? 2 : undefined;
+
     baseLayer.current.setSource(
       createXyzSource(
         baseLayerUrl,
         activeBaseLayer?.attribution,
-        tileGridRef.current,
-        dataset.mapConfig.projection,
+        tileGrid,
+        sourceProjection,
+        activeBaseLayer?.wrapX ?? false,
+        reprojectionErrorThreshold,
       ),
     );
     baseLayer.current.setOpacity(activeBaseLayer?.opacity ?? 0.9);
     baseLayer.current.setVisible(true);
-  }, [dataset, baseLayerUrl, activeBaseLayer?.opacity, activeBaseLayer?.attribution]);
+  }, [
+    dataset,
+    baseLayerUrl,
+    activeBaseLayer?.opacity,
+    activeBaseLayer?.attribution,
+    activeBaseLayer?.sourceProjection,
+    activeBaseLayer?.tileSize,
+    activeBaseLayer?.wrapX,
+  ]);
 
   useEffect(() => {
     if (!dataset || !tileGridRef.current || !coastLayer.current) return;
