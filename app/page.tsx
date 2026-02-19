@@ -29,6 +29,32 @@ const getLocalYesterdayKey = () => {
   return toLocalDateKey(yesterday);
 };
 
+const toUtcDateKey = (value: Date) =>
+  `${value.getUTCFullYear()}-${pad2(value.getUTCMonth() + 1)}-${pad2(value.getUTCDate())}`;
+
+const parseDateKeyUtc = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+};
+
+const buildDailyDateRange = (startDate: string, endDate: string) => {
+  const start = parseDateKeyUtc(startDate);
+  const end = parseDateKeyUtc(endDate);
+  if (!start || !end || start > end) return [];
+
+  const dates: string[] = [];
+  const cursor = new Date(start.getTime());
+  while (cursor <= end) {
+    dates.push(toUtcDateKey(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return dates;
+};
+
 const pickDefaultDate = (dates: string[], fallback = "") => {
   if (dates.length === 0) return fallback;
   const sorted = [...dates].sort();
@@ -134,8 +160,9 @@ export default function HomePage() {
       return () => controller.abort();
     }
 
-    const cacheKey =
-      requestedSource.kind === "wmts" && requestedSource.wmtsCapabilitiesUrl
+    const cacheKey = requestedSource.skipDateAvailabilityCheck
+      ? `assumed:${requestedSource.id}:${requestedSource.assumeDailyDatesFrom ?? "default"}:${requestedSource.assumeDailyDatesTo ?? "yesterday"}`
+      : requestedSource.kind === "wmts" && requestedSource.wmtsCapabilitiesUrl
         ? `wmts:${requestedSource.wmtsCapabilitiesUrl}`
         : requestedSource.kind === "wms" && requestedSource.wmsCatalogRoot
           ? `wms:${requestedSource.wmsCatalogRoot}`
@@ -144,6 +171,19 @@ export default function HomePage() {
     const cachedDates = datesCacheRef.current.get(cacheKey);
     if (cachedDates && cachedDates.length > 0) {
       applyWithDates(cachedDates);
+      return () => controller.abort();
+    }
+
+    if (requestedSource.skipDateAvailabilityCheck) {
+      const rangeStart =
+        requestedSource.assumeDailyDatesFrom ??
+        fallbackDates[0] ??
+        dataset.defaults.defaultDate;
+      const rangeEnd = requestedSource.assumeDailyDatesTo ?? getLocalYesterdayKey();
+      const assumedDates = buildDailyDateRange(rangeStart, rangeEnd);
+      const datesToUse = assumedDates.length > 0 ? assumedDates : fallbackDates;
+      datesCacheRef.current.set(cacheKey, datesToUse);
+      applyWithDates(datesToUse);
       return () => controller.abort();
     }
 
@@ -228,7 +268,7 @@ export default function HomePage() {
     return buildTileUrl(activeBaseLayer, activeDate);
   }, [activeBaseLayer, activeDate]);
 
-  const iceLayerUrl = useMemo(() => { // GeoTIFF/NetCDF면 → buildGeoTiffUrl, 타일이면 → buildTileUrl
+  const iceLayerUrl = useMemo(() => { // GeoTIFF면 → buildGeoTiffUrl, 타일이면 → buildTileUrl
     if (!activeIceSource || !activeDate) return "";
     if (activeIceSource.kind === "geotiff") {
       return buildGeoTiffUrl(activeIceSource, activeDate);
@@ -357,7 +397,6 @@ export default function HomePage() {
               iceLayerUrl={iceLayerUrl}
               showCoastlines={showCoastlines}
               showGraticule={showGraticule}
-              isPlaying={isPlaying}
               onIceStatusChange={setIceStatus}
             />
           </section>
