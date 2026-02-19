@@ -317,15 +317,33 @@ export const dataset: DatasetResponse = {
         [179.995, 89.995],
       ],
     },
+    noaaNsidcSeaIceIndex25km: {
+      id: "noaaNsidcSeaIceIndex25km",
+      label: "Sea Ice Concentration, NOAA@NSIDC, Sea Ice Index (25 km)",
+      description:
+        "The AMSR2 Daily Polar Gridded Sea Ice Concentrations data set provides sea ice concentrations for both the Northern and Southern Hemispheres. The Advanced Microwave Scanning Radiometer 2 (AMSR2) sensor on the Japan Aerospace Exploration Agency (JAXA) Global Change Observation Mission - Water (GCOM-W) satellite provides the daily passive microwave brightness temperature [TB] data via AMSR2 Daily Polar Gridded Brightness Temperatures (NSIDC-0802) which is used as input for this product. As this product is intended to provide a follow-on data set for Near-Real-Time DMSP SSMIS Daily Polar Gridded Sea Ice Concentrations (NSIDC-0081) and Sea Ice Concentrations from Nimbus-7 SMMR and DMSP SSM/I-SSMIS Passive Microwave Data (NSIDC-0051), it uses TB fields gridded to match TBs gridded from SSMIS sensors on the same 25km polar stereo grids. For Sea Ice Concentrations prior to 1 January 2025 are from Nimbus-7 SMMR and DMSP SSM/I-SSMIS Passive Microwave Data",
+      layer: "N_{ymd}_concentration_v4.0",
+      tileMatrixSet: "raster-file",
+      format: "tif",
+      attribution: "AMSR2 Daily Polar Gridded, Version 2",
+      infoUrl: "https://nsidc.org/data/nsidc-0803/versions/2",
+      urlTemplate: noaaGeoTiffTemplate,
+      opacity: 0.8,
+      kind: "geotiff",
+      sourceProjection: "EPSG:3413",
+      skipDateAvailabilityCheck: true,
+      assumeDailyDatesFrom: "2012-07-02",
+      fileDateLookbackDays: 120,
+    },
     bremenAsiAmsr2Sic: {
       id: "bremenAsiAmsr2Sic",
-      label: "Sea Ice Concentration, Univ. Bremen, ASI-AMSR2",
+      label: "Sea Ice Concentration, Univ. Bremen, ASI-AMSR2 (3.125 km)",
       description:
-        "Sea ice concentration calculated with the ARTIST Sea Ice (ASI) algorithm using AMSR2 data.",
+        "sea ice concentration data are retrieved with the ARTIST Sea Ice (ASI) algorithm (Spreen et al., 2008) which is applied to microwave radiometer data of the sensors AMSR-E (Advanced Microwave Scanning Radiometer for EOS) on the NASA satellite Aqua, and AMSR2 (Advanced Microwave Scanning Radiometer 2) on the JAXA satellite GCOM-W1.",
       layer: "asi-AMSR2-n3125",
       tileMatrixSet: "raster-file",
       format: "tif",
-      attribution: "Univ. Bremen",
+      attribution: "Univ. Bremen ASI-AMSR2 n3125",
       infoUrl:
         "https://seaice.uni-bremen.de/sea-ice-concentration/amsre-amsr2/information/",
       urlTemplate: bremenAsiAmsr2GeoTiffTemplate,
@@ -338,13 +356,13 @@ export const dataset: DatasetResponse = {
     },
     bremenSmosSmapThinIceThickness: {
       id: "bremenSmosSmapThinIceThickness",
-      label: "Sea Ice Thickness, Univ. Bremen, SMOS",
+      label: "Sea Ice Thickness, Univ. Bremen, SMOS (40 km)",
       description:
-        "SMOS thin sea ice thickness GeoTIFF from University of Bremen.",
+        "The thickness of thin sea ice (SIT) is daily retrieved from observations of the L-band microwave sensor SMOS (Soil Moisture and Ocean Salinity). Horizontal and vertical polarized brightness temperatures in the incidence angle range of 40° to 50° are averaged. The ice thickness is then inferred from the polarization difference and the intensity using an empirical method (Huntemann et al., 2014). Thin sea ice occurs during the freezing season. In the melting season, the thickness of sea ice is highly variable and the emission properties in the microwave change due to the wetness of the surface and occurrence of melt ponds in the Arctic. Therefore, thickness data are calculated only during the freezing season, that is from October to April in the Arctic and from March to September in the Antarctic. During the melting season, the procedure does not yield meaningful results. Two variants of the data SMOS sea ice thickness data are processed, an RFI filtered version and a raw unfiltered version. Despite L-band emission at the SMOS&SMAP frequency being banned for communication, strong emissions from various sources on the ground may affect the sensitive instruments and cause large errors in the ice thickness data. We use the RFI related flags in the SMOS L1C and SMAP L1b data to filter out affected data. It is, in general, advisable to use the filtered version of the SMOS product or the SMOS&SMAP combined product, where this data is filtered by default. As the resolution of SMOS at the used incidence angle range is about 40 km, only larger regions of thin ice will be retrieved correctly. The rim of thin ice shown in many cases not necessarily indicates thin ice, but can also be caused by the smearing effect (convolution) of the low resolution. Each day of ice thickness data product are calculated twice to ensure that all swath files were available in the archived product. First processing is done directly on the next day with only about 7 hours delay. At this time it can happen that not all swath files are available and another processing of the same day is initiated 23 hours later. In more than 50% of the time the first processing does not include all swath but usually provides sufficient coverage for Arctic and Antarctic regions. This service has been developed in the framework of the EU project SIDARUS. After completion of the SIDARUS project end 2013, the service is continued on a best effort base in the context of the Polar View and of the Arctic Regional Ocean Observing System (Arctic ROOS).",
       layer: "hvnorth__l1c",
       tileMatrixSet: "raster-file",
       format: "tif",
-      attribution: "Univ. Bremen",
+      attribution: "Univ. Bremen SMOS Think Ice Dataset",
       infoUrl: "https://seaice.uni-bremen.de/thin-ice-thickness/",
       urlTemplate: bremenSmosGeoTiffTemplate,
       opacity: 0.8,
@@ -375,7 +393,7 @@ export const dataset: DatasetResponse = {
     // },
     nextSimSeaIceConcentration: {
       id: "nextSimSeaIceConcentration",
-      label: "Sea Ice Concentration & Forecast, neXtSIM (Linear Scale)",
+      label: "Sea Ice Concentration & Forecast, neXtSIM (3 km, Linear)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
@@ -397,7 +415,7 @@ export const dataset: DatasetResponse = {
     },
     nextSimSeaIceConcentrationLog: {
       id: "nextSimSeaIceConcentrationLog",
-      label: "Sea Ice Concentration & Forecast, neXtSIM (Log Scale)",
+      label: "Sea Ice Concentration & Forecast, neXtSIM (3 km, Log)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
@@ -419,14 +437,14 @@ export const dataset: DatasetResponse = {
     },
     nextSimSeaIceThickness: {
       id: "nextSimSeaIceThickness",
-      label: "Sea Ice Thickness & Forecast, neXtSIM (Linear Scale)",
+      label: "Sea Ice Thickness & Forecast, neXtSIM (3 km, Linear)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
         "ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011/cmems_mod_arc_phy_anfc_nextsim_hm_202311/sithick",
       tileMatrixSet: "EPSG:4326",
       format: "png",
-      attribution: "Copernicus Marine Service",
+      attribution: "Copernicus Marine Service / NERSC (Norway)",
       infoUrl:
         "https://data.marine.copernicus.eu/product/ARCTIC_ANALYSISFORECAST_PHY_ICE_002_011",
       urlTemplate: copernicusWmtsTemplate,
@@ -441,7 +459,7 @@ export const dataset: DatasetResponse = {
     },
     nextSimSeaIceThicknessLog: {
       id: "nextSimSeaIceThicknessLog",
-      label: "Sea Ice Thickness & Forecast, neXtSIM (Log Scale)",
+      label: "Sea Ice Thickness & Forecast, neXtSIM (3 km, Log)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
@@ -463,7 +481,7 @@ export const dataset: DatasetResponse = {
     },
     nextSimSeaIceVelocity: {
       id: "nextSimSeaIceVelocity",
-      label: "Sea Ice Velocity & Forcast, neXtSIM (Linear Vector)",
+      label: "Sea Ice Velocity & Forcast, neXtSIM (3 km, Linear)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
@@ -485,7 +503,7 @@ export const dataset: DatasetResponse = {
     },
     nextSimSeaIceVelocityLog: {
       id: "nextSimSeaIceVelocityLog",
-      label: "Sea Ice Velocity & Forcast, neXtSIM (Log Vector)",
+      label: "Sea Ice Velocity & Forcast, neXtSIM (3 km, Log)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:

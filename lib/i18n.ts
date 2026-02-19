@@ -6,19 +6,20 @@ export const supportedLocales: Locale[] = ["en", "ko", "ja", "zh", "fr", "es"];
 
 export const messages = {
   en: {
-    appName: "Arctic Ice Viewer",
-    appTitle: "Arctic sea ice concentration browser",
+    appName: "Arctic Sea Ice",
+    appTitle: "Arctic Sea Ice Dataset Viewer",
     sourceLabel: "Source",
     projectionLabel: "Projection",
     latitudeLabel: "Lat",
     longitudeLabel: "Lon",
     selectedDay: "Selected day",
     loading: "Loading...",
-    dataStatus: "Data status",
+    dataStatus: "Data Status",
     ready: "Ready",
     error: "Error",
     retry: "Retry",
     dataAndLayers: "Data & layers",
+    dataSource: "Data Source",
     iceConcentration: "Ice Concentration",
     baseMap: "Base Map",
     info: "Info",
@@ -38,8 +39,8 @@ export const messages = {
     animationSpeed: "Animation speed",
     secondsShort: "s",
     languageLabel: "Language",
-    layerCatalogOpen: "Layer catalog",
-    layerCatalogTitle: "Layer catalog",
+    layerCatalogOpen: "Layer Catalog",
+    layerCatalogTitle: "Layer Catalog",
     close: "Close",
     baseLayersLabel: "Base layers",
     iceSourcesLabel: "Ice sources",
@@ -70,8 +71,9 @@ export const messages = {
     error: "오류",
     retry: "다시 시도",
     dataAndLayers: "데이터 및 레이어",
+    dataSource: "데이터 소스",
     iceConcentration: "해빙 농도",
-    baseMap: "기본 지도",
+    baseMap: "배경 지도",
     info: "정보",
     legendLabel: "범례",
     active: "활성",
@@ -121,6 +123,7 @@ export const messages = {
     error: "エラー",
     retry: "再試行",
     dataAndLayers: "データとレイヤー",
+    dataSource: "データソース",
     iceConcentration: "海氷濃度",
     baseMap: "ベースマップ",
     info: "情報",
@@ -172,6 +175,7 @@ export const messages = {
     error: "错误",
     retry: "重试",
     dataAndLayers: "数据与图层",
+    dataSource: "数据来源",
     iceConcentration: "海冰浓度",
     baseMap: "底图",
     info: "信息",
@@ -223,6 +227,7 @@ export const messages = {
     error: "Erreur",
     retry: "Reessayer",
     dataAndLayers: "Données et couches",
+    dataSource: "Source de données",
     iceConcentration: "Concentration de glace",
     baseMap: "Fond de carte",
     info: "Info",
@@ -274,6 +279,7 @@ export const messages = {
     error: "Error",
     retry: "Reintentar",
     dataAndLayers: "Datos y capas",
+    dataSource: "Fuente de datos",
     iceConcentration: "Concentración de hielo",
     baseMap: "Mapa base",
     info: "Info",
@@ -312,6 +318,223 @@ export const messages = {
  
   }
 } as const;
+
+const blueMarbleDescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "MODIS Blue Marble, Next Generation은 Terra 위성에 탑재된 MODIS 기기의 2004년 자료를 사용해 제작된 정적 산출물입니다. 영상 해상도는 500 m입니다. 이 자료는 Worldview/Global Imagery Browse Services (GIBS)에서 확인할 수 있습니다.",
+  ja: "MODIS Blue Marble, Next Generation は、Terra 衛星搭載の MODIS センサーによる 2004 年のデータから作成された静的プロダクトです。画像解像度は 500 m です。Worldview/Global Imagery Browse Services (GIBS) で表示できます。",
+  zh: "MODIS Blue Marble, Next Generation 是基于 Terra 卫星上 MODIS 传感器 2004 年数据制作的静态产品。图像分辨率为 500 m。可在 Worldview/Global Imagery Browse Services (GIBS) 中查看。",
+  fr: "Le produit MODIS Blue Marble, Next Generation est un produit statique cree a partir des donnees de 2004 de l'instrument MODIS embarque sur le satellite Terra. La resolution de l'image est de 500 m. Il peut etre visualise dans Worldview/Global Imagery Browse Services (GIBS).",
+  es: "MODIS Blue Marble, Next Generation es un producto estatico creado con datos de 2004 del instrumento MODIS a bordo del satelite Terra. La resolucion de la imagen es de 500 m. Puede verse en Worldview/Global Imagery Browse Services (GIBS).",
+};
+
+const blueMarbleBathymetryDescriptionByLocale: Record<
+  Exclude<Locale, "en">,
+  string
+> = {
+  ko: "음영 기복과 수심 지형을 포함한 Blue Marble입니다.",
+  ja: "陰影起伏と海底地形を含む Blue Marble です。",
+  zh: "包含地形阴影和海底地形的 Blue Marble 图层。",
+  fr: "Blue Marble avec relief ombre et bathymetrie.",
+  es: "Blue Marble con relieve sombreado y batimetria.",
+};
+
+const openStreetMapDescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "OpenStreetMap 표준 배경지도입니다.",
+  ja: "OpenStreetMap の標準ベースマップです。",
+  zh: "OpenStreetMap 标准底图。",
+  fr: "Fond de carte standard OpenStreetMap.",
+  es: "Mapa base estandar de OpenStreetMap.",
+};
+
+const osiSafGlobalDescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "전지구(북극 및 남극) 해역용 제품입니다. OSI SAF는 운영 모드에서 전지구 해빙 제품 5종(해빙 농도, 해빙 경계, 해빙 유형: OSI-401, OSI-402, OSI-403, OSI-405, OSI-408)을 제공합니다. 해빙 농도·경계·유형 제품은 북반구와 남반구를 포괄하는 극지 입체투영 격자에서 일 단위 10 km 해상도로 제공되며, 해빙 표류 제품은 62.5 km 해상도로 제공됩니다. 해빙 표류 운동 벡터의 시간 간격은 2일입니다. 이들은 전지구 해양을 위한 표준 운영 해빙 제품입니다.",
+  ja: "全球（北極および南極）の海域向け製品です。OSI SAF は運用モードで 5 種類の全球海氷製品（海氷濃度、海氷縁辺、海氷タイプ: OSI-401、OSI-402、OSI-403、OSI-405、OSI-408）を提供しています。海氷濃度・縁辺・タイプは北半球と南半球をカバーする極域ステレオ投影で日次 10 km 解像度、海氷ドリフトは 62.5 km 解像度で提供されます。海氷ドリフト運動ベクトルの時間幅は 2 日です。これらは全球海洋向けの運用標準海氷製品です。",
+  zh: "该产品面向全球海域（北极和南极）。OSI SAF 以业务模式提供 5 类全球海冰产品：海冰浓度、海冰边缘、海冰类型（OSI-401、OSI-402、OSI-403、OSI-405 和 OSI-408）。其中海冰浓度、边缘和类型产品以每日 10 km 分辨率提供，海冰漂移以 62.5 km 分辨率提供；全部采用覆盖北半球和南半球的极地立体投影。海冰漂移运动矢量的时间跨度为 2 天。这些是面向全球海洋的业务化标准海冰产品。",
+  fr: "Pour l'ocean global (Arctique et Antarctique). OSI SAF fournit cinq produits globaux de glace de mer en mode operationnel : concentration, lisiere, type de glace (OSI-401, OSI-402, OSI-403, OSI-405 et OSI-408). Les produits de concentration, lisiere et type sont fournis chaque jour a 10 km de resolution, et la derive de glace a 62.5 km, le tout en projection polaire stereographique couvrant l'hemisphere Nord et Sud. Les vecteurs de mouvement de derive de glace ont une duree de 2 jours. Ce sont les produits operationnels nominaux de glace de mer pour l'ocean global.",
+  es: "Para el oceano global (Artico y Antartico). OSI SAF entrega cinco productos globales de hielo marino en modo operativo: concentracion, borde y tipo de hielo (OSI-401, OSI-402, OSI-403, OSI-405 y OSI-408). Los productos de concentracion, borde y tipo se entregan diariamente con resolucion de 10 km, y la deriva de hielo con resolucion de 62.5 km, todos en proyeccion estereografica polar que cubre los hemisferios Norte y Sur. Los vectores de movimiento de la deriva de hielo tienen una ventana temporal de 2 dias. Estos son los productos operativos nominales de hielo marino para el oceano global.",
+};
+
+const osiSafAmsr2DescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "AMSR-2 해빙 농도 제품(OSI-408-a)은 SSMIS 전지구 해빙 농도 제품(OSI-401-d)을 보완합니다. 이 제품은 AMSR-2 위성 마이크로파 복사계 자료를 사용합니다.",
+  ja: "AMSR-2 海氷濃度プロダクト（OSI-408-a）は、SSMIS 全球海氷濃度プロダクト（OSI-401-d）を補完する製品です。この製品は AMSR-2 衛星マイクロ波放射計データを利用します。",
+  zh: "AMSR-2 海冰浓度产品（OSI-408-a）是对基于 SSMIS 的全球海冰浓度产品（OSI-401-d）的补充。该产品使用 AMSR-2 卫星微波辐射计数据。",
+  fr: "Le produit de concentration de glace AMSR-2 (OSI-408-a) est complementaire du produit global SSMIS (OSI-401-d). Ce produit utilise les donnees du radiometre micro-ondes satellitaire AMSR-2.",
+  es: "El producto de concentracion de hielo marino AMSR-2 (OSI-408-a) es complementario del producto global SSMIS (OSI-401-d). Este producto utiliza datos del radiometro de microondas satelital AMSR-2.",
+};
+
+const arcSicNrtDescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "Sentinel-1 및 RCM SAR 영상과 GCOM-W AMSR2 마이크로파 복사계 자료로부터 딥러닝 알고리즘(SEAICE_ARC_PHY_AUTO_L3_MYNRT_011_023)을 사용해 산출된 L3 해빙 농도 제품을 기반으로 하는 북극 L4 해빙 농도 제품입니다. 결측 구간은 OSI SAF EUMETSAT 해빙 농도 제품으로 보정되며, 1 km 격자로 제공됩니다.",
+  ja: "Sentinel-1 および RCM の SAR 画像、ならびに GCOM-W AMSR2 マイクロ波放射計データから深層学習アルゴリズム（SEAICE_ARC_PHY_AUTO_L3_MYNRT_011_023）で推定された L3 海氷濃度を基にした、北極 L4 海氷濃度製品です。欠損領域は OSI SAF EUMETSAT 海氷濃度製品で補完され、1 km 格子で提供されます。",
+  zh: "该北极 L4 海冰浓度产品基于 L3 海冰浓度产品生成，L3 产品由深度学习算法（SEAICE_ARC_PHY_AUTO_L3_MYNRT_011_023）利用 Sentinel-1 与 RCM SAR 影像以及 GCOM-W AMSR2 微波辐射计数据反演得到。缺测区域由 OSI SAF EUMETSAT 海冰浓度产品进行填补，并以 1 km 网格发布。",
+  fr: "Produit arctique L4 de concentration de glace base sur un produit L3 recupere a partir d'images SAR Sentinel-1 et RCM et des donnees radiometriques AMSR2 de GCOM-W via un algorithme d'apprentissage profond (SEAICE_ARC_PHY_AUTO_L3_MYNRT_011_023), complete par les produits de concentration OSI SAF EUMETSAT, et diffuse sur une grille de 1 km.",
+  es: "Producto artico L4 de concentracion de hielo marino basado en un producto L3 obtenido a partir de imagenes SAR de Sentinel-1 y RCM y datos de radiometro de microondas AMSR2 de GCOM-W mediante un algoritmo de aprendizaje profundo (SEAICE_ARC_PHY_AUTO_L3_MYNRT_011_023), con relleno de vacios usando productos de concentracion de hielo OSI SAF EUMETSAT y entregado en una grilla de 1 km.",
+};
+
+const noaaNsidcDescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "AMSR2 일일 극지 격자 해빙 농도 데이터셋은 북반구와 남반구의 해빙 농도를 제공합니다. 일본우주항공연구개발기구(JAXA)의 지구변화관측위성-수자원(GCOM-W)에 탑재된 고급 마이크로파 주사 복사계 2(AMSR2) 센서는, 이 제품의 입력으로 사용되는 AMSR2 일일 극지 격자 휘도온도(NSIDC-0802)를 제공합니다. 이 제품은 Near-Real-Time DMSP SSMIS 일일 극지 격자 해빙 농도(NSIDC-0081) 및 Nimbus-7 SMMR/DMSP SSM/I-SSMIS 수동 마이크로파 해빙 농도(NSIDC-0051)의 후속 데이터셋을 제공하기 위한 목적을 가지므로, 동일한 25 km 극지 입체투영 격자에서 SSMIS 센서로 격자화된 TB와 일치하도록 TB 필드를 격자화해 사용합니다. 2025년 1월 1일 이전의 해빙 농도는 Nimbus-7 SMMR 및 DMSP SSM/I-SSMIS 수동 마이크로파 자료에서 제공합니다.",
+  ja: "AMSR2 日次極域グリッド海氷濃度データセットは、北半球および南半球の海氷濃度を提供します。JAXA の GCOM-W 衛星に搭載された Advanced Microwave Scanning Radiometer 2（AMSR2）センサーが、入力データとして使用される AMSR2 日次極域グリッド輝度温度（NSIDC-0802）を提供します。本製品は、Near-Real-Time DMSP SSMIS 日次極域グリッド海氷濃度（NSIDC-0081）および Nimbus-7 SMMR と DMSP SSM/I-SSMIS 受動マイクロ波海氷濃度（NSIDC-0051）の後継データセットを提供することを目的としているため、同じ 25 km 極域ステレオ格子上で SSMIS センサーの TB と整合するように格子化された TB フィールドを使用します。2025 年 1 月 1 日以前の海氷濃度は Nimbus-7 SMMR および DMSP SSM/I-SSMIS 受動マイクロ波データに由来します。",
+  zh: "AMSR2 每日极区网格海冰浓度数据集提供北半球和南半球的海冰浓度。日本宇宙航空研究开发机构（JAXA）GCOM-W 卫星上的 AMSR2 传感器提供每日被动微波亮温数据，即 AMSR2 Daily Polar Gridded Brightness Temperatures（NSIDC-0802），该数据作为本产品输入。由于本产品旨在作为 Near-Real-Time DMSP SSMIS Daily Polar Gridded Sea Ice Concentrations（NSIDC-0081）以及 Nimbus-7 SMMR 与 DMSP SSM/I-SSMIS Passive Microwave Data（NSIDC-0051）海冰浓度产品的后续数据集，因此其 TB 场被网格化为与同一 25 km 极地立体投影网格上的 SSMIS TB 一致。2025 年 1 月 1 日之前的海冰浓度来自 Nimbus-7 SMMR 和 DMSP SSM/I-SSMIS 被动微波数据。",
+  fr: "Le jeu de donnees AMSR2 Daily Polar Gridded Sea Ice Concentrations fournit la concentration de glace de mer pour les hemispheres Nord et Sud. Le capteur AMSR2 (Advanced Microwave Scanning Radiometer 2) embarque sur le satellite GCOM-W de la JAXA fournit les temperatures de brillance passives quotidiennes via AMSR2 Daily Polar Gridded Brightness Temperatures (NSIDC-0802), utilisees en entree pour ce produit. Comme ce produit est concu pour servir de jeu de donnees de continuation des produits Near-Real-Time DMSP SSMIS Daily Polar Gridded Sea Ice Concentrations (NSIDC-0081) et Sea Ice Concentrations from Nimbus-7 SMMR and DMSP SSM/I-SSMIS Passive Microwave Data (NSIDC-0051), il utilise des champs TB mailles pour correspondre aux TB mailles des capteurs SSMIS sur les memes grilles polaires stereographiques de 25 km. Les concentrations de glace anterieures au 1 janvier 2025 proviennent des donnees passives micro-ondes Nimbus-7 SMMR et DMSP SSM/I-SSMIS.",
+  es: "El conjunto de datos AMSR2 Daily Polar Gridded Sea Ice Concentrations proporciona concentraciones de hielo marino para los hemisferios Norte y Sur. El sensor AMSR2 (Advanced Microwave Scanning Radiometer 2) a bordo del satelite GCOM-W de JAXA proporciona las temperaturas de brillo pasivas diarias mediante AMSR2 Daily Polar Gridded Brightness Temperatures (NSIDC-0802), que se usan como entrada para este producto. Como este producto esta pensado para ofrecer una serie de continuacion de Near-Real-Time DMSP SSMIS Daily Polar Gridded Sea Ice Concentrations (NSIDC-0081) y de Sea Ice Concentrations from Nimbus-7 SMMR and DMSP SSM/I-SSMIS Passive Microwave Data (NSIDC-0051), utiliza campos TB mallados para coincidir con los TB mallados de sensores SSMIS en las mismas grillas polares estereograficas de 25 km. Las concentraciones de hielo anteriores al 1 de enero de 2025 provienen de datos pasivos de microondas de Nimbus-7 SMMR y DMSP SSM/I-SSMIS.",
+};
+
+const bremenAsiDescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "해빙 농도 자료는 ARTIST Sea Ice (ASI) 알고리즘(Spreen et al., 2008)으로 산출되며, 이 알고리즘은 NASA Aqua 위성의 AMSR-E(Advanced Microwave Scanning Radiometer for EOS)와 JAXA GCOM-W1 위성의 AMSR2(Advanced Microwave Scanning Radiometer 2) 센서의 마이크로파 복사계 자료에 적용됩니다.",
+  ja: "海氷濃度データは ARTIST Sea Ice (ASI) アルゴリズム（Spreen et al., 2008）によって取得され、このアルゴリズムは NASA の Aqua 衛星上の AMSR-E（Advanced Microwave Scanning Radiometer for EOS）および JAXA の GCOM-W1 衛星上の AMSR2（Advanced Microwave Scanning Radiometer 2）のマイクロ波放射計データに適用されます。",
+  zh: "海冰浓度数据使用 ARTIST Sea Ice (ASI) 算法（Spreen et al., 2008）反演获得，该算法应用于 NASA Aqua 卫星上的 AMSR-E（Advanced Microwave Scanning Radiometer for EOS）和 JAXA GCOM-W1 卫星上的 AMSR2（Advanced Microwave Scanning Radiometer 2）微波辐射计数据。",
+  fr: "Les donnees de concentration de glace de mer sont derivees avec l'algorithme ARTIST Sea Ice (ASI) (Spreen et al., 2008), applique aux donnees de radiometre micro-ondes des capteurs AMSR-E (Advanced Microwave Scanning Radiometer for EOS) du satellite Aqua de la NASA et AMSR2 (Advanced Microwave Scanning Radiometer 2) du satellite GCOM-W1 de la JAXA.",
+  es: "Los datos de concentracion de hielo marino se obtienen con el algoritmo ARTIST Sea Ice (ASI) (Spreen et al., 2008), aplicado a datos de radiometro de microondas de los sensores AMSR-E (Advanced Microwave Scanning Radiometer for EOS) del satelite Aqua de la NASA y AMSR2 (Advanced Microwave Scanning Radiometer 2) del satelite GCOM-W1 de JAXA.",
+};
+
+const smosThinIceDescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "박빙 해빙 두께(SIT)는 L-밴드 마이크로파 센서인 SMOS(Soil Moisture and Ocean Salinity) 관측으로부터 매일 산출됩니다. 입사각 40°~50° 범위의 수평/수직 편파 밝기온도를 평균하고, 그 편파차와 강도를 이용해 경험적 방법(Huntemann et al., 2014)으로 두께를 추정합니다. 박빙은 결빙기에 주로 나타납니다. 융해기에는 해빙 두께 변동이 매우 크고 표면 습윤 및 융빙연못 발생으로 마이크로파 방출 특성이 달라지므로, 북극은 10월~4월, 남극은 3월~9월에만 두께 자료를 계산합니다. 융해기에는 유의미한 결과를 얻기 어렵습니다. 본 서비스는 RFI 필터링 버전과 비필터링 원시 버전의 두 변형을 처리합니다. SMOS/SMAP 주파수 대역의 L-밴드 방출은 통신 목적으로 금지되어 있음에도 지상 다양한 인공 신호가 민감한 장비에 영향을 주어 큰 오차를 유발할 수 있습니다. 따라서 SMOS L1C와 SMAP L1b의 RFI 관련 플래그를 사용해 영향 자료를 제거합니다. 일반적으로 필터링 버전의 SMOS 제품 또는 기본적으로 필터링이 적용된 SMOS&SMAP 결합 제품 사용을 권장합니다. 사용 입사각에서 SMOS 해상도는 약 40 km이므로, 충분히 큰 박빙 영역만 정확히 복원됩니다. 가장자리 박빙 띠는 실제 박빙이 아니라 저해상도 스미어링(컨볼루션) 효과일 수 있습니다. 일별 제품은 아카이브 완전성을 위해 두 번 처리됩니다. 첫 처리는 다음 날 약 7시간 지연으로 수행되며, 이 시점에는 일부 스와스가 누락될 수 있어 23시간 후 동일 날짜를 재처리합니다. 50%가 넘는 경우 첫 처리에서 일부 스와스가 빠지지만, 대체로 북극/남극 영역을 충분히 덮습니다. 이 서비스는 EU SIDARUS 프로젝트에서 개발되었습니다. SIDARUS 종료(2013년 말) 이후에는 Polar View 및 Arctic ROOS 맥락에서 best effort 방식으로 운영되고 있습니다.",
+  ja: "薄い海氷の厚さ（SIT）は、L バンドマイクロ波センサー SMOS（Soil Moisture and Ocean Salinity）の観測から日次で推定されます。入射角 40°〜50°の範囲で水平・垂直偏波の輝度温度を平均し、偏波差と強度から経験的手法（Huntemann et al., 2014）で氷厚を推定します。薄氷は凍結期に発生します。融解期には海氷厚の変動が大きく、表面の湿潤化や融解池の発生によりマイクロ波放射特性が変化するため、北極では 10 月〜4 月、南極では 3 月〜9 月のみ厚さデータを算出します。融解期には有意な結果を得られません。SMOS 海氷厚データは RFI フィルタ版と未フィルタの生データ版の 2 種類を処理します。SMOS/SMAP 周波数帯の L バンド放射は通信用途では禁止されていますが、地上のさまざまな強い放射源が高感度機器に影響し、厚さデータに大きな誤差を生じることがあります。そのため、SMOS L1C と SMAP L1b の RFI 関連フラグを用いて影響データを除去します。一般には、フィルタ済み SMOS 製品、または既定でフィルタ済みの SMOS&SMAP 結合製品の利用が推奨されます。使用入射角範囲での SMOS 分解能は約 40 km であるため、十分に大きな薄氷域のみが正しく取得されます。多くのケースで見える薄氷の縁は必ずしも実際の薄氷を示さず、低分解能によるスミアリング（畳み込み）効果である可能性があります。各日の氷厚データは、アーカイブ製品で全スワスがそろうよう 2 回処理されます。初回処理は翌日に約 7 時間遅れで実施されますが、この時点ではスワスが出そろわない場合があり、23 時間後に同日の再処理を行います。50% を超えるケースで初回処理に全スワスが含まれませんが、通常は北極・南極を十分にカバーします。このサービスは EU の SIDARUS プロジェクトで開発され、2013 年末の終了後は Polar View および Arctic ROOS の文脈で best effort ベースで継続されています。",
+  zh: "薄海冰厚度（SIT）每日由 L 波段微波传感器 SMOS（Soil Moisture and Ocean Salinity）观测反演获得。系统会对入射角 40° 到 50° 范围内的水平和垂直极化亮温进行平均，并基于极化差与亮温强度通过经验方法（Huntemann et al., 2014）推算冰厚。薄海冰主要出现在冻结季节。融化季节中海冰厚度变化很大，且由于表面湿化与融池出现，微波辐射特性会发生变化，因此北极仅在 10 月至次年 4 月、南极仅在 3 月至 9 月计算厚度数据。融化季节该方法无法给出有意义结果。该产品处理两个版本：RFI 过滤版本和原始未过滤版本。尽管 SMOS&SMAP 频段的 L 波段发射被禁止用于通信，地面多种强辐射源仍可能影响高灵敏度仪器并导致较大误差。我们使用 SMOS L1C 与 SMAP L1b 数据中的 RFI 标志过滤受影响数据。通常建议使用过滤版 SMOS 产品，或默认已过滤的 SMOS&SMAP 组合产品。由于所用入射角下 SMOS 分辨率约为 40 km，只有较大范围的薄冰可被正确反演。许多情况下出现的薄冰边缘不一定代表真实薄冰，也可能由低分辨率带来的展宽（卷积）效应造成。为确保归档产品包含全部条带文件，每天的冰厚产品会计算两次。第一次处理在次日约 7 小时延迟后进行，此时可能并非所有条带都已到达，因此会在 23 小时后再次处理同一天数据。超过 50% 的情况下，第一次处理不含全部条带，但通常仍能覆盖北极和南极的主要区域。该服务在欧盟 SIDARUS 项目框架下开发，项目于 2013 年底结束后，服务在 Polar View 和 Arctic ROOS 框架下继续以 best effort 方式运行。",
+  fr: "L'epaisseur de glace mince (SIT) est derivee quotidiennement des observations du capteur micro-ondes en bande L SMOS (Soil Moisture and Ocean Salinity). Les temperatures de brillance polarisees horizontales et verticales dans la plage d'angles d'incidence de 40 a 50 degres sont moyennees. L'epaisseur de glace est ensuite deduite de la difference de polarisation et de l'intensite au moyen d'une methode empirique (Huntemann et al., 2014). La glace mince apparait pendant la saison de gel. Pendant la saison de fonte, l'epaisseur est tres variable et les proprietes d'emission micro-ondes changent en raison de l'humidite de surface et des mares de fonte ; les donnees d'epaisseur ne sont donc calculees que pendant la saison de gel, d'octobre a avril en Arctique et de mars a septembre en Antarctique. Pendant la saison de fonte, la methode ne produit pas de resultats significatifs. Deux variantes sont traitees : une version filtree RFI et une version brute non filtree. Bien que l'emission en bande L a la frequence SMOS&SMAP soit interdite pour la communication, des emissions fortes en provenance du sol peuvent affecter les instruments sensibles et creer de grandes erreurs. Les drapeaux RFI de SMOS L1C et SMAP L1b sont utilises pour filtrer les donnees affectees. En general, il est recommande d'utiliser la version filtree du produit SMOS ou le produit combine SMOS&SMAP, filtre par defaut. Comme la resolution de SMOS dans cette plage d'angles est d'environ 40 km, seules les grandes zones de glace mince sont correctement recuperees. Le liseret de glace mince visible dans de nombreux cas peut aussi provenir d'un effet de bavure (convolution) lie a la faible resolution. Chaque produit quotidien est calcule deux fois afin de garantir que tous les fichiers de fauchees sont disponibles dans le produit archive. Un premier traitement est effectue des le lendemain avec environ 7 heures de retard ; a ce moment, il peut manquer des fauchees, et un second traitement est lance 23 heures plus tard pour la meme journee. Dans plus de 50% des cas, le premier traitement n'inclut pas toutes les fauchees, mais fournit en general une couverture suffisante pour l'Arctique et l'Antarctique. Ce service a ete developpe dans le cadre du projet europeen SIDARUS. Apres la fin du projet, fin 2013, il est poursuivi en mode best effort dans le contexte de Polar View et d'Arctic ROOS.",
+  es: "El espesor de hielo marino delgado (SIT) se obtiene diariamente a partir de observaciones del sensor de microondas en banda L SMOS (Soil Moisture and Ocean Salinity). Se promedian las temperaturas de brillo con polarizacion horizontal y vertical en el rango de angulo de incidencia de 40 a 50 grados. Luego, el espesor se infiere a partir de la diferencia de polarizacion y de la intensidad mediante un metodo empirico (Huntemann et al., 2014). El hielo delgado aparece durante la temporada de congelacion. En la temporada de deshielo, el espesor del hielo es muy variable y las propiedades de emision en microondas cambian por la humedad de la superficie y la presencia de charcos de deshielo; por ello, los datos de espesor solo se calculan en la temporada de congelacion: de octubre a abril en el Artico y de marzo a septiembre en la Antartida. Durante la temporada de deshielo, el procedimiento no produce resultados significativos. Se procesan dos variantes: una version filtrada por RFI y una version cruda sin filtrar. Aunque la emision en banda L a la frecuencia SMOS&SMAP esta prohibida para comunicaciones, emisiones intensas de distintas fuentes en tierra pueden afectar a los instrumentos sensibles y generar grandes errores. Se usan las banderas RFI de SMOS L1C y SMAP L1b para filtrar datos afectados. En general, se recomienda usar la version filtrada del producto SMOS o el producto combinado SMOS&SMAP, que viene filtrado por defecto. Como la resolucion de SMOS en el rango de angulos usado es de unos 40 km, solo las regiones grandes de hielo delgado se recuperan correctamente. El borde de hielo delgado que aparece en muchos casos no necesariamente indica hielo delgado real, y tambien puede deberse al efecto de difuminado (convolucion) de la baja resolucion. Cada producto diario de espesor se calcula dos veces para asegurar que todos los archivos de barrido esten disponibles en el producto archivado. El primer procesamiento se hace al dia siguiente con unas 7 horas de retraso; en ese momento puede que no esten disponibles todos los barridos, por lo que se inicia un segundo procesamiento 23 horas despues para la misma fecha. En mas del 50% de los casos, el primer procesamiento no incluye todos los barridos, pero normalmente ofrece cobertura suficiente para regiones articas y antarticas. Este servicio se desarrollo en el marco del proyecto europeo SIDARUS. Tras finalizar SIDARUS a finales de 2013, el servicio continua en modo best effort en el contexto de Polar View y del Arctic Regional Ocean Observing System (Arctic ROOS).",
+};
+
+const nextSimDescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "북극 해빙 분석·예보 시스템은 Brittle-Bingham-Maxwell 해빙 유변학을 사용하는 neXtSIM 독립형 해빙 모델을 활용하며, 평균 셀 길이 10 km의 적응형 삼각 격자에서 계산합니다. 모델 영역은 캐나다 군도와 베링해를 포함한 전체 북극을 포괄합니다. neXtSIM은 ECMWF(European Centre for Medium-Range Weather Forecasts)의 대기 강제력과 ARC MFC PHY NRT 시스템(002_001a)의 해양 강제력(TOPAZ5)으로 구동됩니다. neXtSIM은 매일 수동 해빙도, 겨울철 CS2SMOS 해빙 두께를 동화하고 9일 예보를 제공합니다. 출력 변수는 해빙 농도, 해빙 두께, 해빙 표류 속도, 적설 깊이, 해빙 유형, 해빙 연령, 능선 체적 분율, 알베도이며, 시간 간격은 1시간입니다. 적응형 라그랑지안 격자는 편의를 위해 극지 입체투영의 3 km 정규 격자로 보간됩니다. 이 투영은 다른 ARC MFC 제품과 동일합니다.",
+  ja: "Arctic Sea Ice Analysis and Forecast システムは、Brittle-Bingham-Maxwell 海氷レオロジーを適用した neXtSIM スタンドアロン海氷モデルを使用し、平均セル長 10 km の適応三角メッシュ上で計算します。モデル領域は、カナダ多島海とベーリング海を含む北極全域をカバーします。neXtSIM は、ECMWF（European Centre for Medium-Range Weather Forecasts）からの大気強制と、ARC MFC PHY NRT システム（002_001a）である TOPAZ5 からの海洋強制で駆動されます。neXtSIM は日次で実行され、手動海氷図と冬季の CS2SMOS 海氷厚を同化し、9 日先予報を提供します。出力変数は海氷濃度、海氷厚、海氷流速、積雪深、海氷タイプ、海氷年齢、リッジ体積分率、アルベドで、1 時間間隔で提供されます。適応ラグランジュメッシュは、利便性のため極域ステレオ投影の 3 km 正規格子に補間されます。この投影は他の ARC MFC 製品と同一です。",
+  zh: "北极海冰分析与预报系统使用 neXtSIM 独立海冰模型，在平均单元长度 10 km 的自适应三角网格上运行 Brittle-Bingham-Maxwell 海冰流变方案。模型区域覆盖整个北极，包括加拿大群岛和白令海。neXtSIM 由 ECMWF（European Centre for Medium-Range Weather Forecasts）提供的大气强迫以及来自 TOPAZ5（ARC MFC PHY NRT 系统 002_001a）的海洋强迫驱动。neXtSIM 每日运行，同化人工冰图和冬季 CS2SMOS 海冰厚度，并提供 9 天预报。输出变量包括海冰浓度、海冰厚度、海冰漂移速度、积雪深度、海冰类型、海冰年龄、脊冰体积分数和反照率，时间分辨率为逐小时。为便于使用，自适应拉格朗日网格会插值到极地立体投影下 3 km 分辨率的规则网格。该投影与其他 ARC MFC 产品一致。",
+  fr: "Le systeme d'analyse et de prevision de la glace de mer arctique utilise le modele de glace de mer autonome neXtSIM, avec la rheologie Brittle-Bingham-Maxwell, sur un maillage triangulaire adaptatif de longueur de maille moyenne de 10 km. Le domaine couvre tout l'Arctique, y compris l'archipel canadien et la mer de Bering. neXtSIM est force par les forages atmospheriques de surface de l'ECMWF (European Centre for Medium-Range Weather Forecasts) et par les forages oceaniques de TOPAZ5, le systeme ARC MFC PHY NRT (002_001a). neXtSIM tourne chaque jour, assimile des cartes de glace manuelles et l'epaisseur de glace CS2SMOS en hiver, et fournit des previsions a 9 jours. Les variables de sortie sont la concentration de glace, l'epaisseur de glace, la vitesse de derive, l'epaisseur de neige, le type de glace, l'age de la glace, la fraction volumique de croutes et l'albedo, a une frequence horaire. Le maillage lagrangien adaptatif est interpole, pour des raisons pratiques, sur une grille reguliere de 3 km en projection stereographique polaire. La projection est identique a celle des autres produits ARC MFC.",
+  es: "El sistema artico de analisis y pronostico de hielo marino utiliza el modelo autonomo neXtSIM con la reologia de hielo Brittle-Bingham-Maxwell sobre una malla triangular adaptativa con longitud media de celda de 10 km. El dominio del modelo cubre todo el Artico, incluido el archipielago canadiense y el mar de Bering. neXtSIM es forzado con forzamientos atmosfericos de superficie del ECMWF (European Centre for Medium-Range Weather Forecasts) y forzamientos oceanicos de TOPAZ5, el sistema ARC MFC PHY NRT (002_001a). neXtSIM corre diariamente, asimila cartas manuales de hielo, espesor de hielo de CS2SMOS en invierno y entrega pronosticos a 9 dias. Las variables de salida son concentracion de hielo, espesor de hielo, velocidad de deriva, espesor de nieve, tipo de hielo, edad del hielo, fraccion de volumen de crestas y albedo, con frecuencia horaria. La malla lagrangiana adaptativa se interpola por conveniencia a una grilla regular de 3 km en proyeccion estereografica polar. La proyeccion es identica a la de otros productos ARC MFC.",
+};
+
+const coastlinesDescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "NASA GIBS의 해안선 레이어입니다.",
+  ja: "NASA GIBS の海岸線レイヤーです。",
+  zh: "来自 NASA GIBS 的海岸线图层。",
+  fr: "Couche de cotes issue de NASA GIBS.",
+  es: "Capa de costas de NASA GIBS.",
+};
+
+const graticuleNasaDescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "NASA GIBS에서 제공하는 경위도 격자 레이어입니다.",
+  ja: "NASA GIBS が提供する経緯線グリッドレイヤーです。",
+  zh: "来自 NASA GIBS 的经纬网图层。",
+  fr: "Couche de graticule fournie par NASA GIBS.",
+  es: "Capa de reticula de NASA GIBS.",
+};
+
+const graticuleLocalDescriptionByLocale: Record<Exclude<Locale, "en">, string> = {
+  ko: "브라우저에서 로컬로 생성되는 경위도 격자이며, 확대/축소 수준에 따라 동적으로 스타일이 바뀝니다.",
+  ja: "ブラウザ内でローカル生成される経緯線グリッドで、ズームレベルに応じて動的にスタイルが変化します。",
+  zh: "在浏览器本地生成的经纬网图层，样式会根据缩放级别动态变化。",
+  fr: "Graticule genere localement dans le navigateur, avec un style dynamique selon le niveau de zoom.",
+  es: "Reticula generada localmente en el navegador, con estilo dinamico segun el nivel de zoom.",
+};
+
+const sourceDescriptionTranslations: Record<Locale, Record<string, string>> = {
+  en: {},
+  ko: {
+    blueMarble: blueMarbleDescriptionByLocale.ko,
+    blueMarbleBathymetry: blueMarbleBathymetryDescriptionByLocale.ko,
+    openStreetMap: openStreetMapDescriptionByLocale.ko,
+    ASMR2OsiSafIceConc: osiSafGlobalDescriptionByLocale.ko,
+    osiSafAmsr2Wms: osiSafAmsr2DescriptionByLocale.ko,
+    arcSicNrtViridis: arcSicNrtDescriptionByLocale.ko,
+    noaaNsidcSeaIceIndex25km: noaaNsidcDescriptionByLocale.ko,
+    bremenAsiAmsr2Sic: bremenAsiDescriptionByLocale.ko,
+    bremenSmosSmapThinIceThickness: smosThinIceDescriptionByLocale.ko,
+    nextSimSeaIceConcentration: nextSimDescriptionByLocale.ko,
+    nextSimSeaIceConcentrationLog: nextSimDescriptionByLocale.ko,
+    nextSimSeaIceThickness: nextSimDescriptionByLocale.ko,
+    nextSimSeaIceThicknessLog: nextSimDescriptionByLocale.ko,
+    nextSimSeaIceVelocity: nextSimDescriptionByLocale.ko,
+    nextSimSeaIceVelocityLog: nextSimDescriptionByLocale.ko,
+    coastlines_nasa: coastlinesDescriptionByLocale.ko,
+    graticule_nasa: graticuleNasaDescriptionByLocale.ko,
+    graticule: graticuleLocalDescriptionByLocale.ko,
+  },
+  ja: {
+    blueMarble: blueMarbleDescriptionByLocale.ja,
+    blueMarbleBathymetry: blueMarbleBathymetryDescriptionByLocale.ja,
+    openStreetMap: openStreetMapDescriptionByLocale.ja,
+    ASMR2OsiSafIceConc: osiSafGlobalDescriptionByLocale.ja,
+    osiSafAmsr2Wms: osiSafAmsr2DescriptionByLocale.ja,
+    arcSicNrtViridis: arcSicNrtDescriptionByLocale.ja,
+    noaaNsidcSeaIceIndex25km: noaaNsidcDescriptionByLocale.ja,
+    bremenAsiAmsr2Sic: bremenAsiDescriptionByLocale.ja,
+    bremenSmosSmapThinIceThickness: smosThinIceDescriptionByLocale.ja,
+    nextSimSeaIceConcentration: nextSimDescriptionByLocale.ja,
+    nextSimSeaIceConcentrationLog: nextSimDescriptionByLocale.ja,
+    nextSimSeaIceThickness: nextSimDescriptionByLocale.ja,
+    nextSimSeaIceThicknessLog: nextSimDescriptionByLocale.ja,
+    nextSimSeaIceVelocity: nextSimDescriptionByLocale.ja,
+    nextSimSeaIceVelocityLog: nextSimDescriptionByLocale.ja,
+    coastlines_nasa: coastlinesDescriptionByLocale.ja,
+    graticule_nasa: graticuleNasaDescriptionByLocale.ja,
+    graticule: graticuleLocalDescriptionByLocale.ja,
+  },
+  zh: {
+    blueMarble: blueMarbleDescriptionByLocale.zh,
+    blueMarbleBathymetry: blueMarbleBathymetryDescriptionByLocale.zh,
+    openStreetMap: openStreetMapDescriptionByLocale.zh,
+    ASMR2OsiSafIceConc: osiSafGlobalDescriptionByLocale.zh,
+    osiSafAmsr2Wms: osiSafAmsr2DescriptionByLocale.zh,
+    arcSicNrtViridis: arcSicNrtDescriptionByLocale.zh,
+    noaaNsidcSeaIceIndex25km: noaaNsidcDescriptionByLocale.zh,
+    bremenAsiAmsr2Sic: bremenAsiDescriptionByLocale.zh,
+    bremenSmosSmapThinIceThickness: smosThinIceDescriptionByLocale.zh,
+    nextSimSeaIceConcentration: nextSimDescriptionByLocale.zh,
+    nextSimSeaIceConcentrationLog: nextSimDescriptionByLocale.zh,
+    nextSimSeaIceThickness: nextSimDescriptionByLocale.zh,
+    nextSimSeaIceThicknessLog: nextSimDescriptionByLocale.zh,
+    nextSimSeaIceVelocity: nextSimDescriptionByLocale.zh,
+    nextSimSeaIceVelocityLog: nextSimDescriptionByLocale.zh,
+    coastlines_nasa: coastlinesDescriptionByLocale.zh,
+    graticule_nasa: graticuleNasaDescriptionByLocale.zh,
+    graticule: graticuleLocalDescriptionByLocale.zh,
+  },
+  fr: {
+    blueMarble: blueMarbleDescriptionByLocale.fr,
+    blueMarbleBathymetry: blueMarbleBathymetryDescriptionByLocale.fr,
+    openStreetMap: openStreetMapDescriptionByLocale.fr,
+    ASMR2OsiSafIceConc: osiSafGlobalDescriptionByLocale.fr,
+    osiSafAmsr2Wms: osiSafAmsr2DescriptionByLocale.fr,
+    arcSicNrtViridis: arcSicNrtDescriptionByLocale.fr,
+    noaaNsidcSeaIceIndex25km: noaaNsidcDescriptionByLocale.fr,
+    bremenAsiAmsr2Sic: bremenAsiDescriptionByLocale.fr,
+    bremenSmosSmapThinIceThickness: smosThinIceDescriptionByLocale.fr,
+    nextSimSeaIceConcentration: nextSimDescriptionByLocale.fr,
+    nextSimSeaIceConcentrationLog: nextSimDescriptionByLocale.fr,
+    nextSimSeaIceThickness: nextSimDescriptionByLocale.fr,
+    nextSimSeaIceThicknessLog: nextSimDescriptionByLocale.fr,
+    nextSimSeaIceVelocity: nextSimDescriptionByLocale.fr,
+    nextSimSeaIceVelocityLog: nextSimDescriptionByLocale.fr,
+    coastlines_nasa: coastlinesDescriptionByLocale.fr,
+    graticule_nasa: graticuleNasaDescriptionByLocale.fr,
+    graticule: graticuleLocalDescriptionByLocale.fr,
+  },
+  es: {
+    blueMarble: blueMarbleDescriptionByLocale.es,
+    blueMarbleBathymetry: blueMarbleBathymetryDescriptionByLocale.es,
+    openStreetMap: openStreetMapDescriptionByLocale.es,
+    ASMR2OsiSafIceConc: osiSafGlobalDescriptionByLocale.es,
+    osiSafAmsr2Wms: osiSafAmsr2DescriptionByLocale.es,
+    arcSicNrtViridis: arcSicNrtDescriptionByLocale.es,
+    noaaNsidcSeaIceIndex25km: noaaNsidcDescriptionByLocale.es,
+    bremenAsiAmsr2Sic: bremenAsiDescriptionByLocale.es,
+    bremenSmosSmapThinIceThickness: smosThinIceDescriptionByLocale.es,
+    nextSimSeaIceConcentration: nextSimDescriptionByLocale.es,
+    nextSimSeaIceConcentrationLog: nextSimDescriptionByLocale.es,
+    nextSimSeaIceThickness: nextSimDescriptionByLocale.es,
+    nextSimSeaIceThicknessLog: nextSimDescriptionByLocale.es,
+    nextSimSeaIceVelocity: nextSimDescriptionByLocale.es,
+    nextSimSeaIceVelocityLog: nextSimDescriptionByLocale.es,
+    coastlines_nasa: coastlinesDescriptionByLocale.es,
+    graticule_nasa: graticuleNasaDescriptionByLocale.es,
+    graticule: graticuleLocalDescriptionByLocale.es,
+  },
+};
+
+export const getSourceDescription = (
+  locale: Locale,
+  sourceId: string,
+  fallback: string,
+) => sourceDescriptionTranslations[locale]?.[sourceId] ?? fallback;
 
 export type Messages = (typeof messages)[Locale];
 

@@ -438,7 +438,7 @@ export default function DataDebugPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Layer catalog</CardTitle>
+              <CardTitle>t{'layerCatalogOpen'}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>

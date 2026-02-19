@@ -154,10 +154,7 @@ export default function CalendarSelector({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("dateSelector")}</CardTitle>
-        <p className="text-xs text-slate-400">
-          {t("dateSelectorHint")}
-        </p>
+        <CardTitle className="my-[-6px]">{t("dateSelector")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
