@@ -22,12 +22,15 @@ const wmsDatesCache = new Map();
 const wmtsDatesCache = new Map();
 
 const catalogRefRegex = /<catalogRef[^>]*xlink:href="([^"]+)"/g;
-const nhDateRegex = /nh_polstere-100_amsr2_(\d{8})1200\.nc/g;
+const ncDateRegex = /(?:^|[^0-9])(20\d{2})(\d{2})(\d{2})(?:\d{4})?\.nc\b/g;
+const yearCatalogRefRegex = /^\d{4}\/catalog\.xml(?:\?.*)?$/;
+const monthCatalogRefRegex = /^\d{2}\/catalog\.xml(?:\?.*)?$/;
 const layerRegex = /<Layer\b[\s\S]*?<\/Layer>/g;
-const identifierRegex = /<ows:Identifier>([^<]+)<\/ows:Identifier>/;
+const identifierRegex = /<ows:Identifier>([^<]+)<\/ows:Identifier>/i;
 const dimensionRegex = /<(?:ows:)?Dimension>[\s\S]*?<\/(?:ows:)?Dimension>/g;
-const timeIdentifierRegex = /<ows:Identifier>\s*time\s*<\/ows:Identifier>/;
-const valueRegex = /<Value>([^<]+)<\/Value>/;
+const timeIdentifierRegex = /<ows:Identifier>\s*time\s*<\/ows:Identifier>/i;
+const valueRegex = /<Value>([^<]+)<\/Value>/i;
+const layerVersionSuffixRegex = /_20\d{4}(?=\/|$)/g;
 
 function getSingleQueryValue(queryValue) {
   if (Array.isArray(queryValue)) return queryValue[0];
@@ -76,33 +79,85 @@ function extractRefs(xml) {
   return refs;
 }
 
-function extractWmsDates(xml) {
+function extractWmsDates(xml, layer) {
+  const scopedXml = layer && xml.includes(layer) ? xml : xml;
   const dates = new Set();
   let match;
-  while ((match = nhDateRegex.exec(xml))) {
-    const raw = match[1];
-    const yyyy = raw.slice(0, 4);
-    const mm = raw.slice(4, 6);
-    const dd = raw.slice(6, 8);
+  while ((match = ncDateRegex.exec(scopedXml))) {
+    const yyyy = match[1];
+    const mm = match[2];
+    const dd = match[3];
     dates.add(`${yyyy}-${mm}-${dd}`);
   }
   return dates;
 }
 
-function extractTimeRange(xml, layerId) {
+function extractLayerTimeRanges(xml) {
+  const ranges = [];
   const layers = xml.match(layerRegex) || [];
+
   for (const layerXml of layers) {
     const idMatch = layerXml.match(identifierRegex);
-    if (!idMatch || idMatch[1] !== layerId) continue;
+    if (!idMatch) continue;
 
     const dimensions = layerXml.match(dimensionRegex) || [];
     for (const dimensionXml of dimensions) {
       if (!timeIdentifierRegex.test(dimensionXml)) continue;
       const valueMatch = dimensionXml.match(valueRegex);
-      if (valueMatch) return valueMatch[1];
+      if (valueMatch) {
+        ranges.push({
+          identifier: idMatch[1].trim(),
+          value: valueMatch[1].trim(),
+        });
+        break;
+      }
     }
   }
-  return null;
+
+  return ranges;
+}
+
+function normalizeLayerId(layerId) {
+  return layerId.trim().toLowerCase().replace(layerVersionSuffixRegex, "");
+}
+
+function extractTimeRange(xml, layerId) {
+  const ranges = extractLayerTimeRanges(xml);
+  const requestedId = layerId.trim();
+
+  const exact = ranges.find((range) => range.identifier === requestedId);
+  if (exact) return exact.value;
+
+  const normalizedRequested = normalizeLayerId(requestedId);
+  const normalizedMatches = ranges.filter(
+    (range) => normalizeLayerId(range.identifier) === normalizedRequested,
+  );
+  if (normalizedMatches.length > 0) {
+    return normalizedMatches[normalizedMatches.length - 1].value;
+  }
+
+  const requestedParts = normalizedRequested.split("/");
+  const requestedLeaf = requestedParts[requestedParts.length - 1];
+  const requestedPrefix = requestedParts.slice(0, -1).join("/");
+  if (!requestedLeaf) return null;
+
+  const leafMatches = ranges.filter((range) => {
+    const parts = normalizeLayerId(range.identifier).split("/");
+    return parts[parts.length - 1] === requestedLeaf;
+  });
+  if (leafMatches.length === 0) return null;
+  if (!requestedPrefix) {
+    return leafMatches[leafMatches.length - 1].value;
+  }
+
+  const prefixMatches = leafMatches.filter((range) =>
+    normalizeLayerId(range.identifier).startsWith(requestedPrefix),
+  );
+  if (prefixMatches.length > 0) {
+    return prefixMatches[prefixMatches.length - 1].value;
+  }
+
+  return leafMatches[leafMatches.length - 1].value;
 }
 
 function buildDailyDates(startIso, endIso) {
@@ -126,6 +181,40 @@ function buildDailyDates(startIso, endIso) {
   }
 
   return dates;
+}
+
+function parseDateToken(value) {
+  const token = value.trim();
+  if (!token) return null;
+
+  const dateLike = token.includes("T") ? token.slice(0, 10) : token;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateLike)) {
+    return dateLike;
+  }
+  if (/^\d{8}$/.test(token)) {
+    const yyyy = token.slice(0, 4);
+    const mm = token.slice(4, 6);
+    const dd = token.slice(6, 8);
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return null;
+}
+
+function parseTimeDimensionValue(value) {
+  if (value.includes("/")) {
+    const [start, end] = value.split("/");
+    if (start && end) {
+      return buildDailyDates(start, end);
+    }
+    return [];
+  }
+
+  const dates = value
+    .split(",")
+    .map((token) => parseDateToken(token))
+    .filter((token) => !!token);
+
+  return Array.from(new Set(dates)).sort();
 }
 
 async function mapLimit(items, limit, worker) {
@@ -248,6 +337,7 @@ app.whenReady().then(() => {
 
   server.get("/api/wmsdates", async (req, res) => {
     const root = getSingleQueryValue(req.query.root);
+    const layer = getSingleQueryValue(req.query.layer) || "";
     if (!root) {
       res.status(400).send("Missing root");
       return;
@@ -266,7 +356,7 @@ app.whenReady().then(() => {
       return;
     }
 
-    const cacheKey = base.toString();
+    const cacheKey = `${base.toString()}::${layer}`;
     const cached = wmsDatesCache.get(cacheKey);
     if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
       res.json({ dates: cached.dates });
@@ -279,30 +369,41 @@ app.whenReady().then(() => {
 
     try {
       const rootXml = await fetchText(rootUrl);
+      const dates = new Set();
+      for (const date of extractWmsDates(rootXml, layer)) {
+        dates.add(date);
+      }
+
       const yearRefs = extractRefs(rootXml).filter((ref) =>
-        /^\d{4}\/catalog\.xml$/.test(ref),
+        yearCatalogRefRegex.test(ref),
       );
       const yearUrls = yearRefs.map((ref) => new URL(ref, rootUrl).toString());
 
       const monthUrls = (
         await mapLimit(yearUrls, 4, async (yearUrl) => {
           const xml = await fetchText(yearUrl);
+          for (const date of extractWmsDates(xml, layer)) {
+            dates.add(date);
+          }
           const monthRefs = extractRefs(xml).filter((ref) =>
-            /^\d{2}\/catalog\.xml$/.test(ref),
+            monthCatalogRefRegex.test(ref),
           );
           return monthRefs.map((ref) => new URL(ref, yearUrl).toString());
         })
       ).flat();
 
-      const dates = new Set();
       await mapLimit(monthUrls, 6, async (monthUrl) => {
         const xml = await fetchText(monthUrl);
-        for (const date of extractWmsDates(xml)) {
+        for (const date of extractWmsDates(xml, layer)) {
           dates.add(date);
         }
       });
 
       const sorted = Array.from(dates).sort();
+      if (sorted.length === 0) {
+        res.status(404).send("No dates found");
+        return;
+      }
       wmsDatesCache.set(cacheKey, { at: Date.now(), dates: sorted });
       res.json({ dates: sorted });
     } catch (error) {
@@ -341,19 +442,18 @@ app.whenReady().then(() => {
 
     try {
       const xml = await fetchText(target.toString());
-      const range = extractTimeRange(xml, layer);
-      if (!range) {
+      const timeValue = extractTimeRange(xml, layer);
+      if (!timeValue) {
         res.status(404).send("Time range not found");
         return;
       }
 
-      const [start, end] = range.split("/");
-      if (!start || !end) {
+      const dates = parseTimeDimensionValue(timeValue);
+      if (dates.length === 0) {
         res.status(500).send("Invalid time range");
         return;
       }
 
-      const dates = buildDailyDates(start, end);
       wmtsDatesCache.set(cacheKey, { at: Date.now(), dates });
       res.json({ dates });
     } catch (error) {

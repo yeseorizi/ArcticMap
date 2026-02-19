@@ -6,19 +6,31 @@
 	 npm install
 	 ```
 
-2. Run locally in Dev mode
+2. Run locally in web dev mode (Next.js + Next API routes):
    
      ```bash
      npm run dev
      ```
 
-3. Build the Next.js static output (writes to `out/` because `output: "export"` is enabled):
+3. Build for web hosting (Vercel-compatible):
 
 	 ```bash
-	 npm run build
+	 npm run build:web
 	 ```
 
-4. Create Electron builds:
+4. Build the Next.js static output for Electron (writes to `out/` because `BUILD_TARGET=electron` enables `output: "export"`):
+
+	 ```bash
+	 npm run build:electron
+	 ```
+
+5. Start Electron locally:
+
+	 ```bash
+	 npm run start:electron
+	 ```
+
+6. Create Electron builds:
 
 	 - Create platform installers:
 

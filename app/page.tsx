@@ -23,11 +23,7 @@ const pad2 = (value: number) => String(value).padStart(2, "0");
 const toLocalDateKey = (value: Date) =>
   `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`;
 
-const getLocalYesterdayKey = () => {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  return toLocalDateKey(yesterday);
-};
+const getLocalTodayKey = () => toLocalDateKey(new Date());
 
 const toUtcDateKey = (value: Date) =>
   `${value.getUTCFullYear()}-${pad2(value.getUTCMonth() + 1)}-${pad2(value.getUTCDate())}`;
@@ -58,10 +54,10 @@ const buildDailyDateRange = (startDate: string, endDate: string) => {
 const pickDefaultDate = (dates: string[], fallback = "") => {
   if (dates.length === 0) return fallback;
   const sorted = [...dates].sort();
-  const yesterdayKey = getLocalYesterdayKey();
-  const atOrBeforeYesterday = sorted.filter((date) => date <= yesterdayKey);
-  if (atOrBeforeYesterday.length > 0) {
-    return atOrBeforeYesterday[atOrBeforeYesterday.length - 1];
+  const todayKey = getLocalTodayKey();
+  const atOrBeforeToday = sorted.filter((date) => date <= todayKey);
+  if (atOrBeforeToday.length > 0) {
+    return atOrBeforeToday[atOrBeforeToday.length - 1];
   }
   return sorted[sorted.length - 1];
 };
@@ -144,12 +140,18 @@ export default function HomePage() {
       preserveCurrent = true,
     ) => {
       if (controller.signal.aborted) return;
-      const sortedDates = [...dates].sort();
-      setAvailableDates(sortedDates);
+      const sortedDates = Array.from(new Set(dates)).sort();
+      const lagDays = Math.max(0, requestedSource?.availabilityLagDays ?? 0);
+      const effectiveDates =
+        lagDays > 0 && sortedDates.length > lagDays
+          ? sortedDates.slice(0, -lagDays)
+          : sortedDates;
+      const available = effectiveDates.length > 0 ? effectiveDates : sortedDates;
+      setAvailableDates(available);
       setActiveDate((current) =>
-        preserveCurrent && sortedDates.includes(current)
+        preserveCurrent && available.includes(current)
           ? current
-          : pickDefaultDate(sortedDates, sortedDates[sortedDates.length - 1] ?? ""),
+          : pickDefaultDate(available, available[available.length - 1] ?? ""),
       );
       setAppliedIceSourceKey(requestedKey);
       setIsDatesLoading(false);
@@ -161,11 +163,11 @@ export default function HomePage() {
     }
 
     const cacheKey = requestedSource.skipDateAvailabilityCheck
-      ? `assumed:${requestedSource.id}:${requestedSource.assumeDailyDatesFrom ?? "default"}:${requestedSource.assumeDailyDatesTo ?? "yesterday"}`
+      ? `assumed:${requestedSource.id}:${requestedSource.assumeDailyDatesFrom ?? "default"}:${requestedSource.assumeDailyDatesTo ?? "today"}`
       : requestedSource.kind === "wmts" && requestedSource.wmtsCapabilitiesUrl
-        ? `wmts:${requestedSource.wmtsCapabilitiesUrl}`
+        ? `wmts:${requestedSource.wmtsCapabilitiesUrl}:${requestedSource.layer}`
         : requestedSource.kind === "wms" && requestedSource.wmsCatalogRoot
-          ? `wms:${requestedSource.wmsCatalogRoot}`
+          ? `wms:${requestedSource.wmsCatalogRoot}:${requestedSource.layer}`
           : `fallback:${requestedSource.id}`;
 
     const cachedDates = datesCacheRef.current.get(cacheKey);
@@ -179,7 +181,7 @@ export default function HomePage() {
         requestedSource.assumeDailyDatesFrom ??
         fallbackDates[0] ??
         dataset.defaults.defaultDate;
-      const rangeEnd = requestedSource.assumeDailyDatesTo ?? getLocalYesterdayKey();
+      const rangeEnd = requestedSource.assumeDailyDatesTo ?? getLocalTodayKey();
       const assumedDates = buildDailyDateRange(rangeStart, rangeEnd);
       const datesToUse = assumedDates.length > 0 ? assumedDates : fallbackDates;
       datesCacheRef.current.set(cacheKey, datesToUse);
@@ -203,7 +205,10 @@ export default function HomePage() {
     const loadDates = async () => {
       if (canFetchWms) {
         try {
-          const params = new URLSearchParams({ root: requestedSource.wmsCatalogRoot! });
+          const params = new URLSearchParams({
+            root: requestedSource.wmsCatalogRoot!,
+            layer: requestedSource.layer,
+          });
           const res = await fetch(`/api/wmsdates?${params.toString()}`, {
             signal: controller.signal,
           });
