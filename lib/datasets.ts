@@ -132,6 +132,32 @@ const copernicusNextSimWmtsCapabilitiesUrl =
 const copernicusGlobalSeaIceWmtsCapabilitiesUrl =
   "https://wmts.marine.copernicus.eu/teroWmts?request=GetCapabilities&service=WMTS";
 
+const pad2 = (value: number) => String(value).padStart(2, "0");
+
+const toLocalDateKey = (value: Date) =>
+  `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`;
+
+const buildDayBeforeYesterdaySnapshot = (): Snapshot => {
+  const dayBeforeYesterday = new Date();
+  dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 2);
+  const date = toLocalDateKey(dayBeforeYesterday);
+  const label = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "2-digit",
+  }).format(dayBeforeYesterday);
+
+  return {
+    label,
+    date,
+    extent: 0,
+    anomaly: 0,
+    drift: "N/A",
+    concentration: 0,
+  };
+};
+
+const dayBeforeYesterdaySnapshot = buildDayBeforeYesterdaySnapshot();
+
 export const dataset: DatasetResponse = {
   mapConfig: {
     projection: "EPSG:3413",
@@ -550,72 +576,7 @@ export const dataset: DatasetResponse = {
       ],
     },
   },
-  snapshots: [
-    {
-      label: "Feb 01",
-      date: "2026-02-01",
-      extent: 13.92,
-      anomaly: -0.34,
-      drift: "NNE",
-      concentration: 92,
-    },
-    {
-      label: "Feb 02",
-      date: "2026-02-02",
-      extent: 13.71,
-      anomaly: -0.41,
-      drift: "NE",
-      concentration: 89,
-    },
-    {
-      label: "Feb 03",
-      date: "2026-02-03",
-      extent: 13.55,
-      anomaly: -0.48,
-      drift: "E",
-      concentration: 86,
-    },
-    {
-      label: "Feb 04",
-      date: "2026-02-04",
-      extent: 13.42,
-      anomaly: -0.53,
-      drift: "ESE",
-      concentration: 83,
-    },
-    {
-      label: "Feb 05",
-      date: "2026-02-05",
-      extent: 13.66,
-      anomaly: -0.36,
-      drift: "ENE",
-      concentration: 90,
-    },
-    {
-      label: "Feb 06",
-      date: "2026-02-06",
-      extent: 13.58,
-      anomaly: -0.39,
-      drift: "NE",
-      concentration: 88,
-    },
-    {
-      label: "Feb 07",
-      date: "2026-02-07",
-      extent: 13.49,
-      anomaly: -0.42,
-      drift: "E",
-      concentration: 87,
-    },
-    {
-      label: "Feb 08",
-      date: "2026-02-08",
-      extent: 13.44,
-      anomaly: -0.45,
-      drift: "ESE",
-      concentration: 85,
-    },
-  ],
+  snapshots: [dayBeforeYesterdaySnapshot],
   calendarDays: [
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
     22, 23, 24, 25, 26, 27, 28,
@@ -625,7 +586,7 @@ export const dataset: DatasetResponse = {
     iceSourceKey: "",
     showCoastlines: true,
     showGraticule: true,
-    defaultDate: "2026-02-08",
+    defaultDate: dayBeforeYesterdaySnapshot.date,
   },
 };
 
