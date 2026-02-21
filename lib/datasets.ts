@@ -117,6 +117,7 @@ const gibsUrlTemplate =
   "https://gibs.earthdata.nasa.gov/wmts/epsg3413/best/{layer}/default/{time}/{tileMatrixSet}/{z}/{y}/{x}.{format}";
 const gibsStaticUrlTemplate =
   "https://gibs.earthdata.nasa.gov/wmts/epsg3413/best/{layer}/default/{tileMatrixSet}/{z}/{y}/{x}.{format}";
+const osmUrlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const noaaGeoTiffTemplate =
   "https://noaadata.apps.nsidc.org/NOAA/G02135/north/daily/geotiff/{year}/{month}_{monthName}/N_{ymd}_concentration_v4.0.tif";
 const osiSafWmsFileTemplate =
@@ -204,6 +205,21 @@ export const dataset: DatasetResponse = {
       attribution: "NASA GIBS",
       urlTemplate: gibsStaticUrlTemplate,
       opacity: 0.9,
+    },
+    openStreetMap: {
+      id: "openStreetMap",
+      label: "OpenStreetMap",
+      description: "OpenStreetMap standard basemap",
+      layer: "osm",
+      infoUrl: "https://www.openstreetmap.org/copyright",
+      tileMatrixSet: "xyz",
+      format: "png",
+      attribution: "OpenStreetMap contributors",
+      urlTemplate: osmUrlTemplate,
+      opacity: 1,
+      sourceProjection: "EPSG:3857",
+      tileSize: 256,
+      wrapX: true,
     },
     // modis: {
     //   id: "modis",
@@ -582,8 +598,8 @@ export const dataset: DatasetResponse = {
     22, 23, 24, 25, 26, 27, 28,
   ],
   defaults: {
-    baseLayerKey: "",
-    iceSourceKey: "",
+    baseLayerKey: "blueMarbleBathymetry",
+    iceSourceKey: "ASMR2OsiSafIceConc",
     showCoastlines: true,
     showGraticule: true,
     defaultDate: dayBeforeYesterdaySnapshot.date,

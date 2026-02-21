@@ -40,6 +40,13 @@ interface MapViewerProps {
 
 type GraticuleLayer = TileLayer<XYZ> | VectorLayer<VectorSource>;
 
+const LAYER_Z_INDEX = {
+  base: 10,
+  ice: 20,
+  coast: 30,
+  graticule: 40,
+} as const;
+
 const toExtent = (bounds: [[number, number], [number, number]]) =>
   [bounds[0][0], bounds[0][1], bounds[1][0], bounds[1][1]] as [
     number,
@@ -454,7 +461,7 @@ export default function MapViewer({
       useInterimTilesOnError: true,
       className: "basemap-layer",
     });
-    baseLayer.current.setZIndex(10);
+    baseLayer.current.setZIndex(LAYER_Z_INDEX.base);
     map.addLayer(baseLayer.current);
 
     const coastSource = dataset.overlays.coastlines;
@@ -464,7 +471,7 @@ export default function MapViewer({
       className: "coastline-layer",
       visible: showCoastlines,
     });
-    coastLayer.current.setZIndex(30);
+    coastLayer.current.setZIndex(LAYER_Z_INDEX.coast);
     map.addLayer(coastLayer.current);
 
     const graticuleSource = dataset.overlays.graticule;
@@ -475,7 +482,7 @@ export default function MapViewer({
         view.getZoom() ?? dataset.mapConfig.initialZoom,
       );
       graticuleLayer.current.setVisible(showGraticule);
-      graticuleLayer.current.setZIndex(30);
+      graticuleLayer.current.setZIndex(LAYER_Z_INDEX.graticule);
       map.addLayer(graticuleLayer.current);
     } else {
       graticuleLayer.current = new TileLayer({
@@ -484,7 +491,7 @@ export default function MapViewer({
         className: "graticule-layer",
         visible: showGraticule,
       });
-      graticuleLayer.current.setZIndex(30);
+      graticuleLayer.current.setZIndex(LAYER_Z_INDEX.graticule);
       map.addLayer(graticuleLayer.current);
     }
 
@@ -550,17 +557,34 @@ export default function MapViewer({
       return;
     }
 
+    const sourceProjection =
+      activeBaseLayer?.sourceProjection ?? dataset.mapConfig.projection;
+    const tileGrid = resolveTileGrid(sourceProjection, activeBaseLayer?.tileSize);
+    if (!tileGrid) return;
+    const reprojectionErrorThreshold =
+      sourceProjection !== dataset.mapConfig.projection ? 2 : undefined;
+
     baseLayer.current.setSource(
       createXyzSource(
         baseLayerUrl,
         activeBaseLayer?.attribution,
-        tileGridRef.current,
-        dataset.mapConfig.projection,
+        tileGrid,
+        sourceProjection,
+        activeBaseLayer?.wrapX ?? false,
+        reprojectionErrorThreshold,
       ),
     );
     baseLayer.current.setOpacity(activeBaseLayer?.opacity ?? 0.9);
     baseLayer.current.setVisible(true);
-  }, [dataset, baseLayerUrl, activeBaseLayer?.opacity, activeBaseLayer?.attribution]);
+  }, [
+    dataset,
+    baseLayerUrl,
+    activeBaseLayer?.opacity,
+    activeBaseLayer?.attribution,
+    activeBaseLayer?.sourceProjection,
+    activeBaseLayer?.tileSize,
+    activeBaseLayer?.wrapX,
+  ]);
 
   useEffect(() => {
     if (!dataset || !tileGridRef.current || !coastLayer.current) return;
@@ -605,12 +629,14 @@ export default function MapViewer({
 
   useEffect(() => {
     if (coastLayer.current) {
+      coastLayer.current.setZIndex(LAYER_Z_INDEX.coast);
       coastLayer.current.setVisible(showCoastlines);
     }
   }, [showCoastlines]);
 
   useEffect(() => {
     if (graticuleLayer.current) {
+      graticuleLayer.current.setZIndex(LAYER_Z_INDEX.graticule);
       graticuleLayer.current.setVisible(showGraticule);
     }
   }, [showGraticule]);
@@ -788,7 +814,7 @@ export default function MapViewer({
       source.on("tileloadend", onTileLoadEnd);
       source.on("tileloaderror", onTileLoadError);
 
-      layer.setZIndex(20);
+      layer.setZIndex(LAYER_Z_INDEX.ice);
       map.addLayer(layer);
       if (!holdPrevious) {
         activateLayer();
