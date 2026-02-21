@@ -4,7 +4,7 @@ export type TileLayerSource = {
   layer: string;
   tileMatrixSet: string;
   description: string;
-  format: "jpg" | "jpeg" | "png" | "tif" | "nc";
+  format: "jpg" | "jpeg" | "png" | "tif";
   attribution: string;
   infoUrl?: string;
   urlTemplate: string;
@@ -28,6 +28,11 @@ export type TileLayerSource = {
   sourceProjection?: string;
   tileSize?: number;
   wrapX?: boolean;
+  skipDateAvailabilityCheck?: boolean;
+  assumeDailyDatesFrom?: string;
+  assumeDailyDatesTo?: string;
+  fileDateLookbackDays?: number;
+  fallbackUrlTemplates?: string[];
 };
 
 export type GraticuleSource = {
@@ -120,6 +125,10 @@ const gibsStaticUrlTemplate =
 const osmUrlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const noaaGeoTiffTemplate =
   "https://noaadata.apps.nsidc.org/NOAA/G02135/north/daily/geotiff/{year}/{month}_{monthName}/N_{ymd}_concentration_v4.0.tif";
+const bremenAsiAmsr2GeoTiffTemplate =
+  "https://data.seaice.uni-bremen.de/amsr2/asi_daygrid_swath/n3125/{year}/{monthShortLower}/Arctic3125/asi-AMSR2-n3125-{ymd}-v5.4.tif";
+const bremenSmosGeoTiffTemplate =
+  "https://data.seaice.uni-bremen.de/smos/tif/{ymd}_hvnorth__l1c.tif";
 const osiSafWmsFileTemplate =
   "https://thredds.met.no/thredds/wms/osisaf/met.no/ice/amsr2_conc/{YYYY}/{MM}/ice_conc_nh_polstere-100_amsr2_{YYYYMMDD}1200.nc";
 const copernicusWmtsTemplate =
@@ -235,7 +244,7 @@ export const dataset: DatasetResponse = {
   iceSources: {
     ASMR2OsiSafIceConc: {
       id: "ASMR2OsiSafIceConc",
-      label: "Sea Ice Concentration, OSI SAF GLOBAL (ASMR2)",
+      label: "Sea Ice Concentration, OSI SAF GLOBAL (10km)",
       description:
         "For the Global - Arctic and Antarctic - Ocean. The OSI SAF delivers five global sea ice products in operational mode: sea ice concentration, sea ice edge, sea ice type (OSI-401, OSI-402, OSI-403, OSI-405 and OSI-408). The sea ice concentration, edge and type products are delivered daily at 10km resolution and the sea ice drift in 62.5km resolution, all in polar stereographic projections covering the Northern Hemisphere and the Southern Hemisphere. The sea ice drift motion vectors have a time-span of 2 days. These are the Sea Ice operational nominal products for the Global Ocean.",
       layer:
@@ -262,7 +271,7 @@ export const dataset: DatasetResponse = {
     },
     osiSafAmsr2Wms: {
       id: "osiSafAmsr2Wms",
-      label: "Sea Ice Concentration, OSI SAF OSI-408-a (ASMR2) (Slow)",
+      label: "Sea Ice Concentration, OSI SAF OSI-408-a (10 km) (Slow)",
       description: "The AMSR-2 sea ice concentration product (OSI-408-a) is complementary to the SSMIS global sea ice concentration product (OSI-401-d).The product utilises the AMSR-2 satellite microwave radiometer data.",
       layer: "ice_conc",
       tileMatrixSet: "wms",
@@ -283,7 +292,7 @@ export const dataset: DatasetResponse = {
     },
     arcSicNrtViridis: {
       id: "arcSicNrtViridis",
-      label: "Sea Ice Concentration, High Resolution L4",
+      label: "Sea Ice Concentration, OSI SAF High-Res L4 (1 km)",
       description:
         "Arctic L4 sea ice concentration product based on a L3 sea ice concentration product retrieved from Sentinel-1 and RCM SAR imagery and GCOM-W AMSR2 microwave radiometer data using a deep learning algorithm (SEAICE_ARC_PHY_AUTO_L3_MYNRT_011_023), gap-filled with OSI SAF EUMETSAT sea ice concentration products and delivered on a 1 km grid.",
       layer:
@@ -308,6 +317,43 @@ export const dataset: DatasetResponse = {
         [179.995, 89.995],
       ],
     },
+    bremenAsiAmsr2Sic: {
+      id: "bremenAsiAmsr2Sic",
+      label: "Sea Ice Concentration, Univ. Bremen, ASI-AMSR2",
+      description:
+        "Sea ice concentration calculated with the ARTIST Sea Ice (ASI) algorithm using AMSR2 data.",
+      layer: "asi-AMSR2-n3125",
+      tileMatrixSet: "raster-file",
+      format: "tif",
+      attribution: "Univ. Bremen",
+      infoUrl:
+        "https://seaice.uni-bremen.de/sea-ice-concentration/amsre-amsr2/information/",
+      urlTemplate: bremenAsiAmsr2GeoTiffTemplate,
+      opacity: 0.8,
+      kind: "geotiff",
+      sourceProjection: "EPSG:3413",
+      skipDateAvailabilityCheck: true,
+      assumeDailyDatesFrom: "2012-07-02",
+      fileDateLookbackDays: 90,
+    },
+    bremenSmosSmapThinIceThickness: {
+      id: "bremenSmosSmapThinIceThickness",
+      label: "Sea Ice Thickness, Univ. Bremen, SMOS",
+      description:
+        "SMOS thin sea ice thickness GeoTIFF from University of Bremen.",
+      layer: "hvnorth__l1c",
+      tileMatrixSet: "raster-file",
+      format: "tif",
+      attribution: "Univ. Bremen",
+      infoUrl: "https://seaice.uni-bremen.de/thin-ice-thickness/",
+      urlTemplate: bremenSmosGeoTiffTemplate,
+      opacity: 0.8,
+      kind: "geotiff",
+      sourceProjection: "EPSG:3413",
+      skipDateAvailabilityCheck: true,
+      assumeDailyDatesFrom: "2010-10-01",
+      fileDateLookbackDays: 120,
+    },
     // osiSafAmsr2WmsUncertainty: {
     //   id: "osiSafAmsr2WmsUncertainty",
     //   label: "OSI SAF AMSR2 SIC (WMS · total_uncertainty)",
@@ -329,7 +375,7 @@ export const dataset: DatasetResponse = {
     // },
     nextSimSeaIceConcentration: {
       id: "nextSimSeaIceConcentration",
-      label: "[neXtSIM] Sea Ice Concentration forcast (Linear Scale)",
+      label: "Sea Ice Concentration & Forecast, neXtSIM (Linear Scale)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
@@ -351,7 +397,7 @@ export const dataset: DatasetResponse = {
     },
     nextSimSeaIceConcentrationLog: {
       id: "nextSimSeaIceConcentrationLog",
-      label: "[neXtSIM] Sea Ice Concentration forcast (Log Scale)",
+      label: "Sea Ice Concentration & Forecast, neXtSIM (Log Scale)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
@@ -373,7 +419,7 @@ export const dataset: DatasetResponse = {
     },
     nextSimSeaIceThickness: {
       id: "nextSimSeaIceThickness",
-      label: "[neXtSIM] Sea Ice Thickness forcast (Linear Scale)",
+      label: "Sea Ice Thickness & Forecast, neXtSIM (Linear Scale)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
@@ -395,7 +441,7 @@ export const dataset: DatasetResponse = {
     },
     nextSimSeaIceThicknessLog: {
       id: "nextSimSeaIceThicknessLog",
-      label: "[neXtSIM] Sea Ice Thickness forcast (Log Scale)",
+      label: "Sea Ice Thickness & Forecast, neXtSIM (Log Scale)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
@@ -417,7 +463,7 @@ export const dataset: DatasetResponse = {
     },
     nextSimSeaIceVelocity: {
       id: "nextSimSeaIceVelocity",
-      label: "[neXtSIM] Sea Ice Velocity forcast (Linear Vector)",
+      label: "Sea Ice Velocity & Forcast, neXtSIM (Linear Vector)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
@@ -439,7 +485,7 @@ export const dataset: DatasetResponse = {
     },
     nextSimSeaIceVelocityLog: {
       id: "nextSimSeaIceVelocityLog",
-      label: "[neXtSIM] Sea Ice Velocity forcast (Log Vector)",
+      label: "Sea Ice Velocity & Forcast, neXtSIM (Log Vector)",
       description:
         "The Arctic Sea Ice Analysis and Forecast system uses the neXtSIM stand-alone sea ice model running the Brittle-Bingham-Maxwell sea ice rheology on an adaptive triangular mesh of 10 km average cell length. The model domain covers the whole Arctic domain, including the Canadian Archipelago and the Bering Sea. neXtSIM is forced with surface atmosphere forcings from the ECMWF (European Centre for Medium-Range Weather Forecasts) and ocean forcings from TOPAZ5, the ARC MFC PHY NRT system (002_001a). neXtSIM runs daily, assimilating manual ice charts, sea ice thickness from CS2SMOS in winter and providing 9-day forecasts. The output variables are the ice concentrations, ice thickness, ice drift velocity, snow depths, sea ice type, sea ice age, ridge volume fraction and albedo, provided at hourly frequency. The adaptive Lagrangian mesh is interpolated for convenience on a 3 km resolution regular grid in a Polar Stereographic projection. The projection is identical to other ARC MFC products.",
       layer:
@@ -598,7 +644,7 @@ export const dataset: DatasetResponse = {
     22, 23, 24, 25, 26, 27, 28,
   ],
   defaults: {
-    baseLayerKey: "blueMarbleBathymetry",
+    baseLayerKey: "blueMarble",
     iceSourceKey: "ASMR2OsiSafIceConc",
     showCoastlines: true,
     showGraticule: true,
@@ -704,7 +750,7 @@ export const buildWmsUrl = (source: TileLayerSource, date: string) => {
     .replace("{YYYYMMDD}", ymd);
 };
 
-export const buildGeoTiffUrl = (source: TileLayerSource, date: string) => {
+export const buildFileUrlFromTemplate = (template: string, date: string) => {
   const [year, month, day] = date.split("-");
   const monthIndex = Number(month) - 1;
   const monthName = new Date(Number(year), monthIndex, 1).toLocaleString(
@@ -712,9 +758,23 @@ export const buildGeoTiffUrl = (source: TileLayerSource, date: string) => {
     { month: "short" },
   );
   const paddedMonth = String(monthIndex + 1).padStart(2, "0");
-  return source.urlTemplate
+  const ymd = `${year}${paddedMonth}${day}`;
+  const monthShortLower = monthName.toLowerCase();
+
+  return template
     .replace("{year}", year)
+    .replace("{YYYY}", year)
     .replace("{month}", paddedMonth)
+    .replace("{MM}", paddedMonth)
+    .replace("{day}", day)
+    .replace("{DD}", day)
     .replace("{monthName}", monthName)
-    .replace("{ymd}", `${year}${paddedMonth}${day}`);
+    .replace("{monthNameLower}", monthShortLower)
+    .replace("{monthShortLower}", monthShortLower)
+    .replace("{ymd}", ymd)
+    .replace("{YYYYMMDD}", ymd);
+};
+
+export const buildGeoTiffUrl = (source: TileLayerSource, date: string) => {
+  return buildFileUrlFromTemplate(source.urlTemplate, date);
 };

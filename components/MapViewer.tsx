@@ -6,10 +6,13 @@ import { register } from "ol/proj/proj4";
 import { get as getProjection, transform } from "ol/proj";
 import OlMap from "ol/Map";
 import View from "ol/View";
+import BaseLayer from "ol/layer/Base";
 import TileLayer from "ol/layer/Tile";
 import VectorLayer from "ol/layer/Vector";
+import WebGLTileLayer from "ol/layer/WebGLTile";
 import XYZ from "ol/source/XYZ";
 import TileWMS from "ol/source/TileWMS";
+import GeoTIFFSource from "ol/source/GeoTIFF";
 import VectorSource from "ol/source/Vector";
 import TileGrid from "ol/tilegrid/TileGrid";
 import { createXYZ } from "ol/tilegrid";
@@ -20,9 +23,18 @@ import Point from "ol/geom/Point";
 import { Style, Stroke, Text, Fill } from "ol/style";
 import { unByKey } from "ol/Observable";
 import type MapBrowserEvent from "ol/MapBrowserEvent";
+import type { EventsKey } from "ol/events";
 import { Card } from "@/components/ui/card";
 import type { DatasetResponse, GraticuleSource, TileLayerSource } from "@/lib/datasets";
-import { buildLegendJsonUrl, buildLegendMetaUrl, buildLegendUrl, buildTileUrl, isGraticuleSource } from "@/lib/datasets";
+import {
+  buildFileUrlFromTemplate,
+  buildGeoTiffUrl,
+  buildLegendJsonUrl,
+  buildLegendMetaUrl,
+  buildLegendUrl,
+  buildTileUrl,
+  isGraticuleSource,
+} from "@/lib/datasets";
 import { useLanguage } from "@/components/LanguageProvider";
 
 interface MapViewerProps {
@@ -34,11 +46,11 @@ interface MapViewerProps {
   iceLayerUrl: string;
   showCoastlines: boolean;
   showGraticule: boolean;
-  isPlaying: boolean;
   onIceStatusChange?: (state: "idle" | "loading" | "ready" | "error") => void;
 }
 
 type GraticuleLayer = TileLayer<XYZ> | VectorLayer<VectorSource>;
+type IceTileSource = XYZ | TileWMS | GeoTIFFSource;
 
 const LAYER_Z_INDEX = {
   base: 10,
@@ -46,6 +58,16 @@ const LAYER_Z_INDEX = {
   coast: 30,
   graticule: 40,
 } as const;
+
+const pad2 = (value: number) => String(value).padStart(2, "0");
+
+const shiftDateKey = (dateKey: string, days: number) => {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  if (!year || !month || !day) return dateKey;
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return `${dt.getUTCFullYear()}-${pad2(dt.getUTCMonth() + 1)}-${pad2(dt.getUTCDate())}`;
+};
 
 const toExtent = (bounds: [[number, number], [number, number]]) =>
   [bounds[0][0], bounds[0][1], bounds[1][0], bounds[1][1]] as [
@@ -93,6 +115,96 @@ const legendJsonCache = new Map<string, LegendJsonResponse>();
 const legendMetaCache = new Map<string, LegendMetaResponse>();
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+const ASI_GEOTIFF_LEGEND_GRADIENT = `linear-gradient(90deg,
+  rgba(0, 0, 0, 0) 0%,
+  #2ee6ff 8%,
+  #2eff8f 24%,
+  #d4ff39 42%,
+  #ffb11f 62%,
+  #ff4f32 82%,
+  #ff2be0 100%
+)`;
+
+const THIN_ICE_LEGEND_GRADIENT = `linear-gradient(90deg,
+  #2ee6ff 0%,
+  #2eff8f 22%,
+  #d4ff39 42%,
+  #ffb11f 62%,
+  #ff4f32 82%,
+  #ffffff 100%
+)`;
+
+const buildGeoTiffStyle = (sourceId: string) => {
+  if (sourceId === "bremenSmosSmapThinIceThickness") {
+    const smosThicknessCm = ["band", 1];
+
+    return {
+      color: [
+        "case",
+        ["<", smosThicknessCm, 0],
+        [0, 0, 0, 0],
+        [">", smosThicknessCm, 50],
+        [255, 255, 255, 0.98],
+        [
+          "interpolate",
+          ["linear"],
+          smosThicknessCm,
+          0,
+          [46, 230, 255, 0.35],
+          5,
+          [46, 255, 143, 0.5],
+          10,
+          [212, 255, 57, 0.65],
+          20,
+          [255, 177, 31, 0.8],
+          30,
+          [255, 111, 45, 0.9],
+          40,
+          [255, 79, 50, 0.95],
+          50,
+          [255, 255, 255, 0.98],
+        ],
+      ],
+    };
+  }
+
+  return {
+    color: [
+      "case",
+      [
+        "all",
+        [">", ["band", 1], 0],
+        ["<=", ["band", 1], 100],
+      ],
+      [
+        "interpolate",
+        ["linear"],
+        [
+          "case",
+          ["<=", ["band", 1], 1],
+          ["*", ["band", 1], 100],
+          ["band", 1],
+        ],
+        0,
+        [0, 0, 0, 0],
+        5,
+        [46, 230, 255, 0.3],
+        15,
+        [46, 255, 143, 0.55],
+        30,
+        [212, 255, 57, 0.74],
+        50,
+        [255, 177, 31, 0.85],
+        70,
+        [255, 79, 50, 0.93],
+        100,
+        [255, 43, 224, 0.98],
+      ],
+      [0, 0, 0, 0],
+    ],
+  };
+};
 
 const resolveGraticuleSettings = (source: GraticuleSource, zoom: number) => {
   const match = source.zoomSteps?.find(
@@ -287,7 +399,6 @@ export default function MapViewer({
   iceLayerUrl,
   showCoastlines,
   showGraticule,
-  isPlaying,
   onIceStatusChange,
 }: MapViewerProps) {
   const mapRef = useRef<HTMLDivElement | null>(null);
@@ -297,8 +408,11 @@ export default function MapViewer({
   const coastLayer = useRef<TileLayer<XYZ> | null>(null);
 
   const graticuleLayer = useRef<GraticuleLayer | null>(null);
-  const iceLayer = useRef<TileLayer<XYZ | TileWMS> | null>(null);
+  const iceLayer = useRef<BaseLayer | null>(null);
   const iceLayerSourceId = useRef<string | null>(null);
+  const fileResolutionCacheRef = useRef(new Map<string, string | null>());
+  const fileAvailabilityCacheRef = useRef(new Map<string, boolean>());
+  const geoTiffSourceCacheRef = useRef(new Map<string, GeoTIFFSource>());
   const coastUrlRef = useRef<string | null>(null);
   const graticuleUrlRef = useRef<string | null>(null);
   const cursorCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
@@ -338,6 +452,117 @@ export default function MapViewer({
   ) => {
     if (!overlay || !date || isGraticuleSource(overlay)) return "";
     return buildTileUrl(overlay, date);
+  };
+
+  const buildProxyUrl = (url: string) =>
+    `/api/proxy?url=${encodeURIComponent(url)}`;
+
+  const resolveExistingFileUrl = async (
+    source: TileLayerSource,
+    requestedDate: string,
+    requestedUrl: string,
+  ) => {
+    const resolutionCacheKey = `${source.id}:${requestedDate}`;
+    if (fileResolutionCacheRef.current.has(resolutionCacheKey)) {
+      return fileResolutionCacheRef.current.get(resolutionCacheKey) ?? null;
+    }
+
+    const checkCandidate = async (candidate: string) => {
+      const cachedAvailability = fileAvailabilityCacheRef.current.get(candidate);
+      if (cachedAvailability !== undefined) {
+        return cachedAvailability;
+      }
+
+      try {
+        const proxyUrl = buildProxyUrl(candidate);
+        const response = await fetch(proxyUrl, { method: "HEAD" });
+        if (response.ok) {
+          fileAvailabilityCacheRef.current.set(candidate, true);
+          return true;
+        }
+
+        if (response.status === 405 || response.status === 501) {
+          const fallback = await fetch(proxyUrl, {
+            method: "GET",
+            headers: { Range: "bytes=0-0" },
+          });
+          if (fallback.ok || fallback.status === 206) {
+            fileAvailabilityCacheRef.current.set(candidate, true);
+            return true;
+          }
+          if ([403, 404, 410].includes(fallback.status)) {
+            fileAvailabilityCacheRef.current.set(candidate, false);
+          }
+          return false;
+        }
+
+        if ([403, 404, 410].includes(response.status)) {
+          fileAvailabilityCacheRef.current.set(candidate, false);
+        }
+      } catch {
+        // network errors are not cached as permanent misses
+      }
+
+      return false;
+    };
+
+    const candidates: string[] = [];
+    const lookbackDays = source.skipDateAvailabilityCheck
+      ? Math.max(0, source.fileDateLookbackDays ?? 120)
+      : 0;
+    const seen = new Set<string>();
+    const fallbackTemplates = source.fallbackUrlTemplates ?? [];
+
+    for (let dayOffset = 0; dayOffset <= lookbackDays; dayOffset += 1) {
+      const candidateDate =
+        dayOffset === 0 ? requestedDate : shiftDateKey(requestedDate, -dayOffset);
+      const primaryUrl =
+        dayOffset === 0 ? requestedUrl : buildGeoTiffUrl(source, candidateDate);
+      const fallbackUrls = fallbackTemplates.map((template) =>
+        buildFileUrlFromTemplate(template, candidateDate),
+      );
+      const orderedForDate = [primaryUrl, ...fallbackUrls];
+
+      for (const candidate of orderedForDate) {
+        if (!candidate || seen.has(candidate)) continue;
+        seen.add(candidate);
+        candidates.push(candidate);
+      }
+    }
+
+    for (const candidate of candidates) {
+      if (await checkCandidate(candidate)) {
+        fileResolutionCacheRef.current.set(resolutionCacheKey, candidate);
+        return candidate;
+      }
+    }
+
+    fileResolutionCacheRef.current.set(resolutionCacheKey, null);
+    return null;
+  };
+
+  const resolveFileLegend = (source: TileLayerSource) => {
+    if (source.id === "bremenAsiAmsr2Sic") {
+      return {
+        gradient: ASI_GEOTIFF_LEGEND_GRADIENT,
+        min: 0,
+        max: 100,
+        units: "%",
+        label: "Sea Ice Concentration",
+      };
+    }
+
+    if (source.id === "bremenSmosSmapThinIceThickness") {
+      return {
+        gradient: THIN_ICE_LEGEND_GRADIENT,
+        min: 0,
+        max: 50,
+        units: "cm",
+        label: "Thin Ice Thickness",
+      };
+    }
+
+    return null;
   };
 
   const resolveWmsProjection = (source: TileLayerSource, mapProjection: string) => {
@@ -646,15 +871,13 @@ export default function MapViewer({
     if (!map || !dataset) return;
 
     const previousLayer = iceLayer.current;
-    const previousSourceId = iceLayerSourceId.current;
-    const allowEarlyReady = isPlaying && activeIceSource?.kind === "wmts";
+    if (previousLayer) {
+      map.removeLayer(previousLayer);
+      iceLayer.current = null;
+      iceLayerSourceId.current = null;
+    }
 
     if (!iceLayerUrl || !activeIceSource) {
-      if (previousLayer) {
-        map.removeLayer(previousLayer);
-        iceLayer.current = null;
-      }
-      iceLayerSourceId.current = null;
       setIceStatus({ state: "idle" });
       return;
     }
@@ -662,16 +885,15 @@ export default function MapViewer({
     setIceStatus({ state: "loading" });
 
     const iceOpacity = activeIceSource.opacity ?? 0.75;
-    const holdPrevious = Boolean(previousLayer);
 
-    let layer: TileLayer<XYZ | TileWMS> | null = null;
-    let source: TileWMS | XYZ | null = null;
+    let layer: BaseLayer | null = null;
+    let source: IceTileSource | null = null;
     let pendingTiles = 0;
     let hadError = false;
-    let readyTimer: ReturnType<typeof setTimeout> | null = null;
+    let renderCompleteKey: EventsKey | EventsKey[] | null = null;
     let isFinalized = false;
     let isActivated = false;
-    let hasShownLayer = false;
+    let cancelled = false;
 
     const activateLayer = () => {
       if (!layer || isActivated) return;
@@ -680,27 +902,17 @@ export default function MapViewer({
       iceLayerSourceId.current = activeIceSource.id;
     };
 
-    const finalizeLayer = () => {
-      if (!layer || isFinalized) return;
-      isFinalized = true;
-      layer.setOpacity(iceOpacity);
-      if (previousLayer && holdPrevious) {
-        map.removeLayer(previousLayer);
-      }
-        
-      if (activeIceSource.kind === "wms") {
-        const mapProjection = dataset.mapConfig.projection;
-        const supported = (activeIceSource.wmsCrs ?? []).map((value) => value.toUpperCase());
-        let wmsProjection = mapProjection;
+    const detachRenderComplete = () => {
+      if (!renderCompleteKey) return;
+      unByKey(renderCompleteKey);
+      renderCompleteKey = null;
+    };
 
-        if (!supported.includes(mapProjection.toUpperCase())) {
-          if (supported.includes("EPSG:3857")) {
-            wmsProjection = "EPSG:3857";
-          } else if (supported.includes("EPSG:4326") || supported.includes("CRS:84")) {
-            wmsProjection = "EPSG:4326";
-          }
-        }
-      }
+    const finalizeLayer = () => {
+      if (!layer || isFinalized || cancelled) return;
+      isFinalized = true;
+      detachRenderComplete();
+      layer.setOpacity(iceOpacity);
       activateLayer();
     };
 
@@ -713,39 +925,37 @@ export default function MapViewer({
 
     const onTileLoadStart = () => {
       pendingTiles += 1;
-      if (!allowEarlyReady || !hasShownLayer) {
-        setLoadingStatus();
-      }
+      setLoadingStatus();
     };
 
     const onTileLoadEnd = () => {
       pendingTiles = Math.max(0, pendingTiles - 1);
-      if (layer && !hasShownLayer) {
-        hasShownLayer = true;
-        if (!holdPrevious) {
-          layer.setOpacity(iceOpacity);
-          if (allowEarlyReady) {
-            setIceStatus({ state: "ready" });
-            finalizeLayer();
-          }
-        }
-      }
       markReadyIfIdle();
     };
 
     const onTileLoadError = () => {
       pendingTiles = Math.max(0, pendingTiles - 1);
       hadError = true;
+      detachRenderComplete();
       setIceStatus({ state: "error", message: "tile load failed" });
       if (layer && !isFinalized) {
         map.removeLayer(layer);
       }
     };
 
-    const detachEvents = (source: TileWMS | XYZ) => {
+    const detachEvents = (source: IceTileSource) => {
       source.un("tileloadstart", onTileLoadStart);
       source.un("tileloadend", onTileLoadEnd);
       source.un("tileloaderror", onTileLoadError);
+    };
+
+    const addPendingLayer = (nextLayer: BaseLayer) => {
+      layer = nextLayer;
+      layer.setZIndex(LAYER_Z_INDEX.ice);
+      map.addLayer(layer);
+      activateLayer();
+      renderCompleteKey = map.on("rendercomplete", markReadyIfIdle);
+      map.render();
     };
 
     if (activeIceSource.kind === "wms") {
@@ -782,8 +992,73 @@ export default function MapViewer({
         className: "ice-layer",
       });
     } else if (activeIceSource.kind === "geotiff") {
-      setIceStatus({ state: "error", message: "geotiff not supported in OpenLayers" });
-      return;
+      void (async () => {
+        try {
+          const resolvedUrl = await resolveExistingFileUrl(
+            activeIceSource,
+            activeDate,
+            iceLayerUrl,
+          );
+          if (cancelled) return;
+          if (!resolvedUrl) {
+            setIceStatus({
+              state: "error",
+              message: "No raster file found for recent dates",
+            });
+            return;
+          }
+
+          const proxiedResolvedUrl = buildProxyUrl(resolvedUrl);
+          const sourceCacheKey = `${activeIceSource.id}:${proxiedResolvedUrl}`;
+          const cachedSource = geoTiffSourceCacheRef.current.get(sourceCacheKey);
+          source =
+            cachedSource ??
+            new GeoTIFFSource({
+              sources: [{ url: proxiedResolvedUrl }],
+              sourceOptions: { allowFullFile: true },
+              projection: activeIceSource.sourceProjection,
+              wrapX: activeIceSource.wrapX ?? false,
+              normalize: false,
+            });
+          if (!cachedSource) {
+            geoTiffSourceCacheRef.current.set(sourceCacheKey, source);
+          }
+
+          layer = new WebGLTileLayer({
+            source,
+            opacity: 0,
+            className: "ice-layer",
+            style: buildGeoTiffStyle(activeIceSource.id) as any,
+          });
+
+          source.on("tileloadstart", onTileLoadStart);
+          source.on("tileloadend", onTileLoadEnd);
+          source.on("tileloaderror", onTileLoadError);
+          addPendingLayer(layer);
+        } catch (error) {
+          if (cancelled) return;
+          const errorMessage =
+            error instanceof Error ? error.message : "raster render failed";
+          setIceStatus({
+            state: "error",
+            message: errorMessage,
+          });
+          if (layer && !isFinalized) {
+            map.removeLayer(layer);
+          }
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+        detachRenderComplete();
+        if (source) {
+          detachEvents(source);
+        }
+        if (layer && iceLayer.current !== layer) {
+          map.removeLayer(layer);
+        }
+      };
     } else {
       const sourceProjection = activeIceSource.sourceProjection ?? dataset.mapConfig.projection;
       const tileGrid = resolveTileGrid(sourceProjection, activeIceSource.tileSize);
@@ -814,23 +1089,20 @@ export default function MapViewer({
       source.on("tileloadend", onTileLoadEnd);
       source.on("tileloaderror", onTileLoadError);
 
-      layer.setZIndex(LAYER_Z_INDEX.ice);
-      map.addLayer(layer);
-      if (!holdPrevious) {
-        activateLayer();
-        iceLayer.current = layer;
-      }
-      readyTimer = setTimeout(markReadyIfIdle, 300);
+      addPendingLayer(layer);
 
       return () => {
-        detachEvents(source);
-        if (readyTimer) clearTimeout(readyTimer);
+        cancelled = true;
+        detachRenderComplete();
+        if (source) {
+          detachEvents(source);
+        }
         if (layer && iceLayer.current !== layer) {
           map.removeLayer(layer);
         }
       };
     }
-  }, [dataset, iceLayerUrl, activeIceSource, activeDate, iceReloadToken, isPlaying]);
+  }, [dataset, iceLayerUrl, activeIceSource, activeDate, iceReloadToken]);
 
   useEffect(() => {
     if (activeIceSource?.opacity === undefined) return;
@@ -841,6 +1113,14 @@ export default function MapViewer({
 
   useEffect(() => {
     let cancelled = false;
+
+    if (activeIceSource?.kind === "geotiff") {
+      setLegendData(resolveFileLegend(activeIceSource));
+      return () => {
+        cancelled = true;
+      };
+    }
+
     if (!legendJsonUrl && !legendMetaUrl) {
       setLegendData(null);
       return;
@@ -923,7 +1203,7 @@ export default function MapViewer({
     return () => {
       cancelled = true;
     };
-  }, [legendJsonUrl, legendMetaUrl]);
+  }, [activeIceSource, legendJsonUrl, legendMetaUrl]);
 
   useEffect(() => {
     setLegendImageOrientation(null);
@@ -947,7 +1227,7 @@ export default function MapViewer({
         {t("latitudeLabel")}: {cursorCoords ? cursorCoords.lat.toFixed(3) : "--"} /{" "}
         {t("longitudeLabel")}: {cursorCoords ? cursorCoords.lon.toFixed(3) : "--"}
       </div>
-      {legendUrl ? (
+      {legendUrl || legendData ? (
         <div className="pointer-events-none absolute bottom-3 left-3 z-[10] rounded-sm border border-slate-700/70 bg-slate-900/85 px-4 py-2 text-[10px] text-slate-200 shadow-md">
           <div className="flex items-center justify-between gap-3 text-[10px] text-slate-300">
             <span className="uppercase text-slate-400">{t("legendLabel")}</span>
@@ -1048,6 +1328,11 @@ export default function MapViewer({
             </button>
           ) : null}
         </div>
+        {iceStatus.state === "error" && iceStatus.message ? (
+          <div className="mt-1 max-w-[320px] text-[10px] text-rose-200">
+            {iceStatus.message}
+          </div>
+        ) : null}
       </div>
     </Card>
   );
