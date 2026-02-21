@@ -5,13 +5,19 @@
   "version": "0.1.0",
   "main": "main.js",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "routes:web": "node scripts/toggle-next-api-routes.mjs enable",
+    "routes:electron": "node scripts/toggle-next-api-routes.mjs disable",
+    "dev": "npm run dev:web",
+    "dev:web": "npm run routes:web && BUILD_TARGET=web next dev",
+    "build": "npm run build:web",
+    "build:web": "npm run routes:web && BUILD_TARGET=web next build",
+    "build:electron": "npm run routes:electron && BUILD_TARGET=electron next build",
     "start": "electron-forge start",
-    "pack": "npm run build && electron-builder",
+    "start:electron": "npm run build:electron && electron-forge start",
+    "pack": "npm run build:electron && electron-builder",
     "lint": "next lint",
-    "package": "electron-forge package",
-    "make": "electron-forge make"
+    "package": "npm run build:electron && electron-forge package",
+    "make": "npm run build:electron && electron-forge make"
   },
   "build": {
     "appId": "com.example.next-arctic-map-viewer",

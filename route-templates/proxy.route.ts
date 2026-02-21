@@ -58,7 +58,7 @@ const proxyRequest = async (req: Request, method: "GET" | "HEAD") => {
     if (!upstream.ok) {
       return new NextResponse(
         `Upstream error: ${upstream.status} ${upstream.statusText}`,
-        { status: upstream.status }
+        { status: upstream.status },
       );
     }
 
@@ -105,8 +105,9 @@ const proxyRequest = async (req: Request, method: "GET" | "HEAD") => {
       status: upstream.status,
       headers: responseHeaders,
     });
-  } catch (e: any) {
-    return new NextResponse(`Proxy fetch threw: ${String(e?.message ?? e)}`, { status: 500 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return new NextResponse(`Proxy fetch threw: ${message}`, { status: 500 });
   }
 };
 

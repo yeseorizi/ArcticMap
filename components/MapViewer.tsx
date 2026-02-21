@@ -502,7 +502,15 @@ export default function MapViewer({
 
   const { t } = useLanguage();
 
-  const handleRetry = () => setIceReloadToken((value) => value + 1);
+  const handleRetry = () => {
+    if (activeIceSource?.kind === "geotiff") {
+      fileResolutionCacheRef.current.delete(`${activeIceSource.id}:${activeDate}`);
+      fileAvailabilityCacheRef.current.clear();
+      geoTiffSourceCacheRef.current.clear();
+    }
+    setIceStatus({ state: "loading" });
+    setIceReloadToken((value) => value + 1);
+  };
   const setLoadingStatus = () =>
     setIceStatus((prev) => (prev.state === "error" ? prev : { state: "loading" }));
 
@@ -550,13 +558,13 @@ export default function MapViewer({
             fileAvailabilityCacheRef.current.set(candidate, true);
             return true;
           }
-          if ([403, 404, 410].includes(fallback.status)) {
+          if ([404, 410].includes(fallback.status)) {
             fileAvailabilityCacheRef.current.set(candidate, false);
           }
           return false;
         }
 
-        if ([403, 404, 410].includes(response.status)) {
+        if ([404, 410].includes(response.status)) {
           fileAvailabilityCacheRef.current.set(candidate, false);
         }
       } catch {
@@ -955,15 +963,20 @@ export default function MapViewer({
     setIceStatus({ state: "loading" });
 
     const iceOpacity = activeIceSource.opacity ?? 0.75;
+    const isGeoTiffSource = activeIceSource.kind === "geotiff";
 
     let layer: BaseLayer | null = null;
     let source: IceTileSource | null = null;
     let pendingTiles = 0;
-    let hadError = false;
+    let tileLoadStarted = false;
+    let successfulTiles = 0;
+    let tileErrors = 0;
+    let hadFatalError = false;
     let renderCompleteKey: EventsKey | EventsKey[] | null = null;
     let isFinalized = false;
     let isActivated = false;
     let cancelled = false;
+    let sourceCacheKey: string | null = null;
 
     const activateLayer = () => {
       if (!layer || isActivated) return;
@@ -986,31 +999,55 @@ export default function MapViewer({
       activateLayer();
     };
 
-    const markReadyIfIdle = () => {
-      if (pendingTiles === 0 && !hadError) {
-        setIceStatus({ state: "ready" });
-        finalizeLayer();
+    const failLayer = (message: string) => {
+      if (hadFatalError || cancelled) return;
+      hadFatalError = true;
+      detachRenderComplete();
+      if (sourceCacheKey) {
+        geoTiffSourceCacheRef.current.delete(sourceCacheKey);
+      }
+      setIceStatus({ state: "error", message });
+      if (layer && !isFinalized) {
+        map.removeLayer(layer);
       }
     };
 
+    const markReadyIfIdle = () => {
+      if (pendingTiles > 0 || hadFatalError || cancelled) return;
+      if (isGeoTiffSource && !tileLoadStarted) return;
+      if (tileErrors > 0 && successfulTiles === 0) {
+        failLayer("tile load failed");
+        return;
+      }
+      setIceStatus((prev) => (prev.state === "ready" ? prev : { state: "ready" }));
+      finalizeLayer();
+    };
+
     const onTileLoadStart = () => {
+      if (cancelled || hadFatalError || isFinalized) return;
+      tileLoadStarted = true;
       pendingTiles += 1;
       setLoadingStatus();
     };
 
     const onTileLoadEnd = () => {
+      if (cancelled || hadFatalError || isFinalized) return;
+      tileLoadStarted = true;
+      successfulTiles += 1;
       pendingTiles = Math.max(0, pendingTiles - 1);
       markReadyIfIdle();
     };
 
     const onTileLoadError = () => {
+      if (cancelled || hadFatalError || isFinalized) return;
+      tileLoadStarted = true;
+      tileErrors += 1;
       pendingTiles = Math.max(0, pendingTiles - 1);
-      hadError = true;
-      detachRenderComplete();
-      setIceStatus({ state: "error", message: "tile load failed" });
-      if (layer && !isFinalized) {
-        map.removeLayer(layer);
+      if (!isGeoTiffSource) {
+        failLayer("tile load failed");
+        return;
       }
+      markReadyIfIdle();
     };
 
     const detachEvents = (source: IceTileSource) => {
@@ -1062,6 +1099,10 @@ export default function MapViewer({
         className: "ice-layer",
       });
     } else if (activeIceSource.kind === "geotiff") {
+      if (iceReloadToken > 0) {
+        fileResolutionCacheRef.current.delete(`${activeIceSource.id}:${activeDate}`);
+      }
+
       void (async () => {
         try {
           const resolvedUrl = await resolveExistingFileUrl(
@@ -1079,7 +1120,10 @@ export default function MapViewer({
           }
 
           const proxiedResolvedUrl = buildProxyUrl(resolvedUrl);
-          const sourceCacheKey = `${activeIceSource.id}:${proxiedResolvedUrl}`;
+          sourceCacheKey = `${activeIceSource.id}:${proxiedResolvedUrl}`;
+          if (iceReloadToken > 0) {
+            geoTiffSourceCacheRef.current.delete(sourceCacheKey);
+          }
           const cachedSource = geoTiffSourceCacheRef.current.get(sourceCacheKey);
           source =
             cachedSource ??
@@ -1109,13 +1153,7 @@ export default function MapViewer({
           if (cancelled) return;
           const errorMessage =
             error instanceof Error ? error.message : "raster render failed";
-          setIceStatus({
-            state: "error",
-            message: errorMessage,
-          });
-          if (layer && !isFinalized) {
-            map.removeLayer(layer);
-          }
+          failLayer(errorMessage);
         }
       })();
 

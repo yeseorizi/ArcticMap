@@ -8,7 +8,9 @@ const cache = new Map<string, { at: number; dates: string[] }>();
 const allowedHosts = new Set(["thredds.met.no"]);
 
 const catalogRefRegex = /<catalogRef[^>]*xlink:href="([^"]+)"/g;
-const nhDateRegex = /nh_polstere-100_amsr2_(\d{8})1200\.nc/g;
+const ncDateRegex = /(?:^|[^0-9])(20\d{2})(\d{2})(\d{2})(?:\d{4})?\.nc\b/g;
+const yearCatalogRefRegex = /^\d{4}\/catalog\.xml(?:\?.*)?$/;
+const monthCatalogRefRegex = /^\d{2}\/catalog\.xml(?:\?.*)?$/;
 
 async function fetchText(url: string) {
   const res = await fetch(url, {
@@ -30,14 +32,14 @@ function extractRefs(xml: string) {
   return refs;
 }
 
-function extractDates(xml: string) {
+function extractDates(xml: string, layer?: string) {
+  const scopedXml = layer && xml.includes(layer) ? xml : xml;
   const dates = new Set<string>();
   let match: RegExpExecArray | null;
-  while ((match = nhDateRegex.exec(xml))) {
-    const raw = match[1];
-    const yyyy = raw.slice(0, 4);
-    const mm = raw.slice(4, 6);
-    const dd = raw.slice(6, 8);
+  while ((match = ncDateRegex.exec(scopedXml))) {
+    const yyyy = match[1];
+    const mm = match[2];
+    const dd = match[3];
     dates.add(`${yyyy}-${mm}-${dd}`);
   }
   return dates;
@@ -64,6 +66,7 @@ async function mapLimit<T, R>(
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const root = searchParams.get("root");
+  const layer = searchParams.get("layer") ?? "";
   if (!root) return new NextResponse("Missing root", { status: 400 });
 
   let base: URL;
@@ -77,7 +80,7 @@ export async function GET(req: Request) {
     return new NextResponse("Host not allowed", { status: 403 });
   }
 
-  const cacheKey = base.toString();
+  const cacheKey = `${base.toString()}::${layer}`;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
     return NextResponse.json({ dates: cached.dates });
@@ -89,30 +92,41 @@ export async function GET(req: Request) {
 
   try {
     const rootXml = await fetchText(rootUrl);
-    const yearRefs = extractRefs(rootXml).filter((ref) => /^\d{4}\/catalog\.xml$/.test(ref));
+    const dates = new Set<string>();
+    for (const date of extractDates(rootXml, layer)) {
+      dates.add(date);
+    }
+
+    const yearRefs = extractRefs(rootXml).filter((ref) => yearCatalogRefRegex.test(ref));
     const yearUrls = yearRefs.map((ref) => new URL(ref, rootUrl).toString());
 
     const monthUrls = (
       await mapLimit(yearUrls, 4, async (yearUrl) => {
         const xml = await fetchText(yearUrl);
-        const monthRefs = extractRefs(xml).filter((ref) => /^\d{2}\/catalog\.xml$/.test(ref));
+        for (const date of extractDates(xml, layer)) {
+          dates.add(date);
+        }
+        const monthRefs = extractRefs(xml).filter((ref) => monthCatalogRefRegex.test(ref));
         return monthRefs.map((ref) => new URL(ref, yearUrl).toString());
       })
     ).flat();
 
-    const dates = new Set<string>();
     await mapLimit(monthUrls, 6, async (monthUrl) => {
       const xml = await fetchText(monthUrl);
-      for (const date of extractDates(xml)) {
+      for (const date of extractDates(xml, layer)) {
         dates.add(date);
       }
     });
 
     const sorted = Array.from(dates).sort();
+    if (sorted.length === 0) {
+      return new NextResponse("No dates found", { status: 404 });
+    }
     cache.set(cacheKey, { at: Date.now(), dates: sorted });
 
     return NextResponse.json({ dates: sorted });
-  } catch (e) {
-    return new NextResponse(String(e), { status: 500 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return new NextResponse(message, { status: 500 });
   }
 }

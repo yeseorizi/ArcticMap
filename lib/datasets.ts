@@ -31,6 +31,7 @@ export type TileLayerSource = {
   skipDateAvailabilityCheck?: boolean;
   assumeDailyDatesFrom?: string;
   assumeDailyDatesTo?: string;
+  availabilityLagDays?: number;
   fileDateLookbackDays?: number;
   fallbackUrlTemplates?: string[];
 };
@@ -262,6 +263,7 @@ export const dataset: DatasetResponse = {
       legendJsonUrlTemplate: copernicusWmtsLegendJsonTemplate,
       legendOrientation: "vertical",
       wmtsCapabilitiesUrl: copernicusGlobalSeaIceWmtsCapabilitiesUrl,
+      availabilityLagDays: 1,
       sourceProjection: "EPSG:4326",
       wrapX: true,
       bounds: [
@@ -310,6 +312,7 @@ export const dataset: DatasetResponse = {
       legendJsonUrlTemplate: copernicusWmtsLegendJsonTemplate,
       legendOrientation: "vertical",
       wmtsCapabilitiesUrl: copernicusGlobalSeaIceWmtsCapabilitiesUrl,
+      availabilityLagDays: 2,
       sourceProjection: "EPSG:4326",
       wrapX: true,
       bounds: [
