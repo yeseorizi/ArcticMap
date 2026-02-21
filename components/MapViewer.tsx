@@ -135,6 +135,14 @@ const THIN_ICE_LEGEND_GRADIENT = `linear-gradient(90deg,
   #ffffff 100%
 )`;
 
+const NOAA_SEA_ICE_INDEX_LEGEND_GRADIENT = `linear-gradient(90deg,
+  #093c70 0%,
+  #256eaf 35%,
+  #77b8e8 65%,
+  #d9f0ff 85%,
+  #ffffff 100%
+)`;
+
 const buildGeoTiffStyle = (sourceId: string) => {
   if (sourceId === "bremenSmosSmapThinIceThickness") {
     const smosThicknessCm = ["band", 1];
@@ -165,6 +173,58 @@ const buildGeoTiffStyle = (sourceId: string) => {
           50,
           [255, 255, 255, 0.98],
         ],
+      ],
+    };
+  }
+
+  if (sourceId === "noaaNsidcSeaIceIndex25km") {
+    const seaIceIndexRaw = ["band", 1];
+    const seaIceIndexPercent = ["/", seaIceIndexRaw, 10];
+
+    return {
+      color: [
+        "case",
+        ["==", seaIceIndexRaw, 0],
+        [0, 0, 0, 0],
+        [
+          "any",
+          ["==", seaIceIndexRaw, 2510],
+          ["==", seaIceIndexRaw, 2530],
+          ["==", seaIceIndexRaw, 2540],
+          ["==", seaIceIndexRaw, 2550],
+        ],
+        [0, 0, 0, 0],
+        [
+          "all",
+          [">", seaIceIndexRaw, 0],
+          ["<=", seaIceIndexRaw, 150],
+        ],
+        [0, 0, 0, 0],
+        [
+          "all",
+          [">", seaIceIndexRaw, 150],
+          ["<=", seaIceIndexRaw, 1000],
+        ],
+        [
+          "interpolate",
+          ["linear"],
+          seaIceIndexPercent,
+          0,
+          [9, 60, 112, 0.35],
+          5,
+          [11, 73, 128, 0.38],
+          15,
+          [18, 87, 148, 0.45],
+          35,
+          [52, 123, 185, 0.62],
+          60,
+          [100, 172, 224, 0.78],
+          85,
+          [190, 228, 250, 0.9],
+          100,
+          [255, 255, 255, 0.98],
+        ],
+        [0, 0, 0, 0],
       ],
     };
   }
@@ -546,6 +606,16 @@ export default function MapViewer({
       return {
         gradient: ASI_GEOTIFF_LEGEND_GRADIENT,
         min: 0,
+        max: 100,
+        units: "%",
+        label: "Sea Ice Concentration",
+      };
+    }
+
+    if (source.id === "noaaNsidcSeaIceIndex25km") {
+      return {
+        gradient: NOAA_SEA_ICE_INDEX_LEGEND_GRADIENT,
+        min: 15,
         max: 100,
         units: "%",
         label: "Sea Ice Concentration",
@@ -1216,10 +1286,10 @@ export default function MapViewer({
   };
 
   return (
-    <Card className="relative min-h-[655px] overflow-hidden border-slate-700">
+    <Card className="relative min-h-[672px] overflow-hidden border-slate-700">
       <div
         ref={mapRef}
-        className="h-[655px] w-full bg-slate-900"
+        className="h-[672px] w-full bg-slate-900"
         aria-label="Arctic sea ice map"
       />
 
@@ -1292,7 +1362,7 @@ export default function MapViewer({
           {activeBaseLayer ? activeBaseLayer.label : <span>{t("notSelected")}</span>}
         </div>
         <div>
-          {t("iceConcentration")}:{" "}
+          {t("dataSource")}:{" "}
           {activeIceSource ? activeIceSource.label : <span>{t("notSelected")}</span>}
         </div>
         <div className="mt-1 flex items-center gap-2">

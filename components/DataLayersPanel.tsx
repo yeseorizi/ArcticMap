@@ -16,6 +16,7 @@ import {
   isGraticuleSource,
   buildWmsUrl,
 } from "@/lib/datasets";
+import { getSourceDescription } from "@/lib/i18n";
 import {
   Select,
   SelectContent,
@@ -54,7 +55,7 @@ export default function DataLayersPanel({
   activeBaseLayer,
   title,
 }: DataLayersPanelProps) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const resolvedTitle = title ?? t("dataAndLayers");
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [openCatalogItems, setOpenCatalogItems] = useState<Record<string, boolean>>({});
@@ -67,69 +68,14 @@ export default function DataLayersPanel({
 
   const isCatalogItemOpen = (id: string) => Boolean(openCatalogItems[id]);
 
-  const renderTileLayer = (source: TileLayerSource) => (
-    <li
-      key={source.id}
-      className="rounded-md border border-slate-800 bg-slate-900/60 p-3"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-slate-200">{source.label}</p>
-          <p className="text-[11px] text-slate-400">
-            {t("attributionLabel")}:{" "}
-            {source.infoUrl ? (
-              <a
-                href={source.infoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sky-300 underline decoration-slate-600 underline-offset-2"
-              >
-                by {source.attribution}
-              </a>
-            ) : (
-              <span>{source.attribution}</span>
-            )}
-          </p>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-7 border-slate-700 bg-transparent px-2 text-[11px] text-slate-300"
-          onClick={() => toggleCatalogItem(source.id)}
-        >
-          {isCatalogItemOpen(source.id)
-            ? t("hideDetails")
-            : t("showDetails")}
-        </Button>
-      </div>
-      {isCatalogItemOpen(source.id) && (
-        <div className="mt-2 space-y-2 text-[11px] text-slate-400">
-          <p>
-            {t("layerIdLabel")}: {source.layer}
-          </p>
-          <p>
-            Tile Matrix Set:{" "}
-            <span className="text-slate-300">{source.tileMatrixSet}</span>
-          </p>
-          <p>{source.description}</p>
-          <p>
-            {t("sampleUrlLabel")}:{" "}
-            <span className="break-all text-slate-300">
-              {source.kind === "geotiff"
-                ? buildGeoTiffUrl(source, sampleDate)
-                : source.kind === "wms"
-                  ? buildWmsUrl(source, sampleDate)
-                  : buildTileUrl(source, sampleDate)}
-            </span>
-          </p>
-        </div>
-      )}
-    </li>
-  );
+  const renderTileLayer = (source: TileLayerSource) => {
+    const resolvedKind = source.kind ?? "wmts";
+    const localizedDescription = getSourceDescription(
+      locale,
+      source.id,
+      source.description,
+    );
 
-  const renderGraticuleLayer = (source: OverlaySource) => {
-    if (!isGraticuleSource(source)) return null;
     return (
       <li
         key={source.id}
@@ -137,18 +83,36 @@ export default function DataLayersPanel({
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-slate-200">
-              {source.label}
-            </p>
-            <p className="text-[11px] text-slate-400">
-              {t("attributionLabel")}: {source.attribution}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <p className="text-base font-semibold text-slate-200">{source.label}</p>
+              <span className="rounded-full border border-slate-700 bg-slate-800/70 px-2 py-0.5 text-xs uppercase tracking-wide text-slate-200">
+                {source.format.toUpperCase()}
+              </span>
+              <span className="rounded-full border border-slate-700 bg-slate-800/70 px-2 py-0.5 text-xs uppercase tracking-wide text-slate-200">
+                {resolvedKind.toUpperCase()}
+              </span>
+            </div>
+            <p className="text-[13px] text-slate-400">
+              {t("attributionLabel")}:{" "}
+              {source.infoUrl ? (
+                <a
+                  href={source.infoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sky-300 underline decoration-slate-600 underline-offset-2"
+                >
+                  by {source.attribution}
+                </a>
+              ) : (
+                <span>{source.attribution}</span>
+              )}
             </p>
           </div>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="h-7 border-slate-700 bg-transparent px-2 text-[11px] text-slate-300"
+            className="h-8 border-slate-700 bg-transparent px-2 text-[13px] text-slate-300"
             onClick={() => toggleCatalogItem(source.id)}
           >
             {isCatalogItemOpen(source.id)
@@ -157,8 +121,60 @@ export default function DataLayersPanel({
           </Button>
         </div>
         {isCatalogItemOpen(source.id) && (
-          <div className="mt-2 space-y-2 text-[11px] text-slate-400">
-            <p>{source.description}</p>
+          <div className="mt-2 space-y-2 text-[13px] text-slate-400">
+            <p className="text-slate-100">{localizedDescription}</p>
+            <p>
+              {t("sampleUrlLabel")}:{" "}
+              <span className="break-all text-slate-300 opacity-60">
+                {source.kind === "geotiff"
+                  ? buildGeoTiffUrl(source, sampleDate)
+                  : source.kind === "wms"
+                    ? buildWmsUrl(source, sampleDate)
+                    : buildTileUrl(source, sampleDate)}
+              </span>
+            </p>
+          </div>
+        )}
+      </li>
+    );
+  };
+
+  const renderGraticuleLayer = (source: OverlaySource) => {
+    if (!isGraticuleSource(source)) return null;
+    const localizedDescription = getSourceDescription(
+      locale,
+      source.id,
+      source.description,
+    );
+    return (
+      <li
+        key={source.id}
+        className="rounded-md border border-slate-800 bg-slate-900/60 p-3"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="space-y-1">
+            <p className="text-base font-semibold text-slate-200">
+              {source.label}
+            </p>
+            <p className="text-[13px] text-slate-400">
+              {t("attributionLabel")}: {source.attribution}
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 border-slate-700 bg-transparent px-2 text-[13px] text-slate-300"
+            onClick={() => toggleCatalogItem(source.id)}
+          >
+            {isCatalogItemOpen(source.id)
+              ? t("hideDetails")
+              : t("showDetails")}
+          </Button>
+        </div>
+        {isCatalogItemOpen(source.id) && (
+          <div className="mt-2 space-y-2 text-[13px] text-slate-400">
+            <p className="text-slate-100">{localizedDescription}</p>
             <p>
               Step: {source.latStep}° / {source.lonStep}°
             </p>
@@ -179,7 +195,7 @@ export default function DataLayersPanel({
     <Card>
       <CardHeader>
         <CardTitle>
-          <div className="flex w-full justify-between items-center">
+          <div className="flex w-full justify-between items-center my-[-10px]">
             <div>{resolvedTitle}</div>
             <Button
               size="sm"
@@ -194,7 +210,7 @@ export default function DataLayersPanel({
       </CardHeader>
       <CardContent className="space-y-3 text-xs text-slate-400">
         <div className="space-y-2">
-          <p className="text-slate-300">{t("iceConcentration")}</p>
+          <p className="text-slate-300">{t("dataSource")}</p>
           <Select
             value={iceSourceKey || "__none__"}
             onValueChange={(value: string) =>
@@ -202,7 +218,7 @@ export default function DataLayersPanel({
             }
           >
             <SelectTrigger
-              aria-label={t("iceConcentration")}
+              aria-label={t("dataSource")}
               className="w-full border-slate-700 bg-slate-900/60 text-xs text-slate-200"
             >
               <SelectValue placeholder={t("selectData")} />
@@ -324,9 +340,9 @@ export default function DataLayersPanel({
                 </Button>
               </CardTitle>
             </CardHeader>
-            <CardContent className="h-full overflow-y-auto space-y-6 text-xs text-slate-300 scrollbar-dark">
+            <CardContent className="h-full overflow-y-auto space-y-6 text-sm text-slate-300 scrollbar-dark">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">
                   {t("baseLayersLabel")}
                 </p>
 
@@ -337,7 +353,7 @@ export default function DataLayersPanel({
                 </ul>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">
                   {t("iceSourcesLabel")}
                 </p>
                 <ul className="mt-2 space-y-3">
@@ -347,7 +363,7 @@ export default function DataLayersPanel({
                 </ul>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">
                   {t("overlaysLabel")}
                 </p>
                 <ul className="mt-2 space-y-3">
