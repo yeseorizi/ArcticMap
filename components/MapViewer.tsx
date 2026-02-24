@@ -33,6 +33,7 @@ import {
   buildLegendMetaUrl,
   buildLegendUrl,
   buildTileUrl,
+  buildWmsUrl,
   isGraticuleSource,
 } from "@/lib/datasets";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -51,6 +52,7 @@ interface MapViewerProps {
 
 type GraticuleLayer = TileLayer<XYZ> | VectorLayer<VectorSource>;
 type IceTileSource = XYZ | TileWMS | GeoTIFFSource;
+type CoastlineSource = XYZ | TileWMS;
 
 const LAYER_Z_INDEX = {
   base: 10,
@@ -465,7 +467,7 @@ export default function MapViewer({
   const mapInstance = useRef<OlMap | null>(null);
   const tileGridRef = useRef<TileGrid | null>(null);
   const baseLayer = useRef<TileLayer<XYZ> | null>(null);
-  const coastLayer = useRef<TileLayer<XYZ> | null>(null);
+  const coastLayer = useRef<TileLayer<CoastlineSource> | null>(null);
 
   const graticuleLayer = useRef<GraticuleLayer | null>(null);
   const iceLayer = useRef<BaseLayer | null>(null);
@@ -519,6 +521,7 @@ export default function MapViewer({
     date: string | undefined = activeDate,
   ) => {
     if (!overlay || !date || isGraticuleSource(overlay)) return "";
+    if (overlay.kind === "wms") return buildWmsUrl(overlay, date);
     return buildTileUrl(overlay, date);
   };
 
@@ -662,7 +665,7 @@ export default function MapViewer({
       LAYERS: source.layer,
       FORMAT: "image/png",
       TRANSPARENT: "true",
-      VERSION: "1.3.0",
+      VERSION: source.wmsVersion ?? "1.3.0",
       STYLES: source.wmsDefaultStyle ?? "",
     };
 
@@ -715,6 +718,57 @@ export default function MapViewer({
     });
   };
 
+  const buildOverlaySource = (
+    overlay: TileLayerSource | GraticuleSource,
+    url: string,
+    date: string,
+  ) => {
+    if (!dataset || !tileGridRef.current) return null;
+    if (isGraticuleSource(overlay)) return null;
+
+    if (overlay.kind === "wms") {
+      const mapProjection = dataset.mapConfig.projection;
+      const wmsProjection = resolveWmsProjection(overlay, mapProjection);
+      const params = buildWmsParams(overlay, date);
+      const proxiedUrl = buildProxyUrl(url);
+      const reprojectionErrorThreshold =
+        wmsProjection !== dataset.mapConfig.projection ? 2 : undefined;
+      const tileGrid =
+        wmsProjection === dataset.mapConfig.projection && tileGridRef.current
+          ? tileGridRef.current
+          : createXYZ({
+              tileSize: 256,
+              extent: getProjection(wmsProjection)?.getExtent(),
+            });
+
+      return new TileWMS({
+        url: proxiedUrl,
+        params,
+        projection: wmsProjection,
+        tileGrid,
+        crossOrigin: "anonymous",
+        attributions: overlay.attribution,
+        transition: 0,
+        reprojectionErrorThreshold,
+      });
+    }
+
+    const sourceProjection = overlay.sourceProjection ?? dataset.mapConfig.projection;
+    const tileGrid = resolveTileGrid(sourceProjection, overlay.tileSize);
+    if (!tileGrid) return null;
+    const reprojectionErrorThreshold =
+      sourceProjection !== dataset.mapConfig.projection ? 2 : undefined;
+
+    return createXyzSource(
+      url,
+      overlay.attribution,
+      tileGrid,
+      sourceProjection,
+      overlay.wrapX ?? false,
+      reprojectionErrorThreshold,
+    );
+  };
+
   useEffect(() => {
     onIceStatusChange?.(iceStatus.state);
   }, [iceStatus.state, onIceStatusChange]);
@@ -728,15 +782,18 @@ export default function MapViewer({
       register(proj4);
     }
 
-    const extent = toExtent(dataset.mapConfig.bounds);
+    const tileGridExtent = toExtent(dataset.mapConfig.bounds);
+    const viewExtent = dataset.mapConfig.viewBounds
+      ? toExtent(dataset.mapConfig.viewBounds)
+      : tileGridExtent;
     const projection = getProjection(projectionCode);
-    if (projection) projection.setExtent(extent);
+    if (projection) projection.setExtent(viewExtent);
 
     const tileSize = projectionCode === "EPSG:4326" ? 256 : 512;
     const tileGrid = new TileGrid({
       origin: dataset.mapConfig.origin,
       resolutions: dataset.mapConfig.resolutions,
-      extent,
+      extent: tileGridExtent,
       tileSize,
     });
     tileGridRef.current = tileGrid;
@@ -744,10 +801,13 @@ export default function MapViewer({
     const view = new View({
       projection: projectionCode,
       resolutions: dataset.mapConfig.resolutions,
-      extent,
+      extent: viewExtent,
       minZoom: dataset.mapConfig.minZoom,
       maxZoom: dataset.mapConfig.maxZoom,
-      center: [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2],
+      center: [
+        (tileGridExtent[0] + tileGridExtent[2]) / 2,
+        (tileGridExtent[1] + tileGridExtent[3]) / 2,
+      ],
       zoom: dataset.mapConfig.initialZoom,
     });
 
@@ -768,7 +828,7 @@ export default function MapViewer({
     map.addLayer(baseLayer.current);
 
     const coastSource = dataset.overlays.coastlines;
-    coastLayer.current = new TileLayer({
+    coastLayer.current = new TileLayer<CoastlineSource>({
       source: createXyzSource("", coastSource.attribution, tileGrid, projectionCode),
       opacity: coastSource.opacity,
       className: "coastline-layer",
@@ -832,7 +892,7 @@ export default function MapViewer({
     }
 
     map.once("postrender", () => {
-      map.getView().fit(extent, { size: map.getSize(), duration: 0 });
+      map.getView().fit(tileGridExtent, { size: map.getSize(), duration: 0 });
     });
 
     return () => {
@@ -892,20 +952,18 @@ export default function MapViewer({
   useEffect(() => {
     if (!dataset || !tileGridRef.current || !coastLayer.current) return;
 
-    const url = overlayTileUrl(dataset.overlays.coastlines, activeDate);
+    const overlay = dataset.overlays.coastlines;
+    const url = overlayTileUrl(overlay, activeDate);
     if (!url) return;
-    if (url === coastUrlRef.current) return;
-    coastUrlRef.current = url;
+    const cacheKey = overlay.kind === "wms" ? `${url}|${activeDate}` : url;
+    if (cacheKey === coastUrlRef.current) return;
+    coastUrlRef.current = cacheKey;
 
-    coastLayer.current.setSource(
-      createXyzSource(
-        url,
-        dataset.overlays.coastlines.attribution,
-        tileGridRef.current,
-        dataset.mapConfig.projection,
-      ),
-    );
-    coastLayer.current.setOpacity(dataset.overlays.coastlines.opacity);
+    const source = buildOverlaySource(overlay, url, activeDate);
+    if (!source) return;
+
+    coastLayer.current.setSource(source);
+    coastLayer.current.setOpacity(overlay.opacity);
   }, [dataset, activeDate]);
 
   useEffect(() => {

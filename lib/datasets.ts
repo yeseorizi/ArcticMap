@@ -15,6 +15,7 @@ export type TileLayerSource = {
   wmsTime?: boolean;
   wmsStyles?: string[];
   wmsDefaultStyle?: string;
+  wmsVersion?: "1.1.1" | "1.3.0";
   wmsPalette?: string;
   wmsColorScaleRange?: string;
   wmsNumColorBands?: number;
@@ -99,6 +100,7 @@ export type DatasetResponse = {
     resolutions: number[];
     origin: [number, number];
     bounds: [[number, number], [number, number]];
+    viewBounds?: [[number, number], [number, number]];
     center: [number, number];
     initialZoom: number;
     minZoom: number;
@@ -123,6 +125,13 @@ const gibsUrlTemplate =
   "https://gibs.earthdata.nasa.gov/wmts/epsg3413/best/{layer}/default/{time}/{tileMatrixSet}/{z}/{y}/{x}.{format}";
 const gibsStaticUrlTemplate =
   "https://gibs.earthdata.nasa.gov/wmts/epsg3413/best/{layer}/default/{tileMatrixSet}/{z}/{y}/{x}.{format}";
+const gibsWms4326Template =
+  "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi";
+const gibsStaticWmts4326Template =
+  "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/{layer}/default/{tileMatrixSet}/{z}/{y}/{x}.{format}";
+const gibsStaticWmts3857Template =
+  "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{tileMatrixSet}/{z}/{y}/{x}.{format}";
+const eoxWmsTemplate = "https://tiles.maps.eox.at/wms";
 const osmUrlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const noaaGeoTiffTemplate =
   "https://noaadata.apps.nsidc.org/NOAA/G02135/north/daily/geotiff/{year}/{month}_{monthName}/N_{ymd}_concentration_v4.0.tif";
@@ -180,6 +189,10 @@ export const dataset: DatasetResponse = {
       [-4194304, -4194304],
       [4194304, 4194304],
     ],
+    viewBounds: [
+      [-7500000, -7500000],
+      [7500000, 7500000],
+    ],
     center: [90, 0],
     initialZoom: 1,
     minZoom: 0,
@@ -218,7 +231,7 @@ export const dataset: DatasetResponse = {
     },
     openStreetMap: {
       id: "openStreetMap",
-      label: "OpenStreetMap",
+      label: "OpenStreetMap (Global)",
       description: "OpenStreetMap standard basemap",
       layer: "osm",
       infoUrl: "https://www.openstreetmap.org/copyright",
@@ -567,15 +580,19 @@ export const dataset: DatasetResponse = {
   },
   overlays: {
     coastlines: {
-      id: "coastlines_nasa",
-      label: "Coastlines NASA GIBS",
-      description: "Coastlines from NASA GIBS",
+      id: "coastlines_gibs_global",
+      label: "Coastlines (NASA GIBS Global)",
+      description: "Global coastlines from NASA GIBS (WMTS, EPSG:3857)",
       layer: "Coastlines",
-      tileMatrixSet: "250m",
+      tileMatrixSet: "GoogleMapsCompatible_Level9",
       format: "png",
       attribution: "NASA GIBS",
-      urlTemplate: gibsStaticUrlTemplate,
+      urlTemplate: gibsStaticWmts3857Template,
       opacity: 0.9,
+      kind: "wmts",
+      sourceProjection: "EPSG:3857",
+      tileSize: 256,
+      wrapX: true,
     },
     graticule_nasa: {
       id: "graticule_nasa",
@@ -665,7 +682,7 @@ export const dataset: DatasetResponse = {
     22, 23, 24, 25, 26, 27, 28,
   ],
   defaults: {
-    baseLayerKey: "blueMarble",
+    baseLayerKey: "openStreetMap",
     iceSourceKey: "ASMR2OsiSafIceConc",
     showCoastlines: true,
     showGraticule: true,
