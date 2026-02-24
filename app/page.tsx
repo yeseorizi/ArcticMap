@@ -392,7 +392,7 @@ export default function HomePage() {
                   </p>
                 </div>
                 <div className="text-xs flex flex-col items-end">
-                  <div>
+                  {/* <div>
                     <a
                       href="https://www.kmou.ac.kr"
                       target="_blank"
@@ -409,17 +409,59 @@ export default function HomePage() {
                         priority
                       />
                     </a>
-                  </div>
+                  </div> */}
+                    {locale.toLowerCase().startsWith("ko") ? (
+                      <div className="flex flex-col mb-[-12px]">
+                        <div className="flex items-center">
+                          <NextImage
+                            src="/POSTERC_KMOU.png"
+                            alt="POSTERC logo"
+                            width={45}
+                            height={45}
+                            className="object-contain mb-2 mr-1 cursor-pointer p-1 rounded-sm hover:bg-white/20"
+                            priority
+                          />
+                          <span className="text-slate-300 font-bold text-[22px] mt-[-22px] tracking-wide mr-1 flex flex-col">
+                            <span className="text-slate-300 font-light text-xs mb-0.5 ml-[1px]">국립한국해양대학교</span>
+                            <span>{t("POSTERC_1")}</span>
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center">
+                        <NextImage
+                          src="/POSTERC_KMOU.png"
+                          alt="POSTERC logo"
+                          width={35}
+                          height={35}
+                          className="object-contain mb-2 mr-1 mt-1.5 cursor-pointer p-1 rounded-sm hover:bg-white/20"
+                          priority
+                        />
+                        <span className="text-slate-300 font-bold text-sm flex flex-col">
+                          <span>{t("POSTERC_1")}</span>
+                          <span>{t("POSTERC_2")}</span>
+                        </span>
+                      </div>
+                    )}
+                      
+                    {/* <a
+                      href="https://www.kmou.ac.kr"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Visit KMOU website"
+                      title="Visit KMOU website"
+                    >
+                    </a> */}
                   <span 
                     className="flex items-center font-light text-slate-500">
-                    <span className="mr-2">
+                    <span className="mr-1.5">
                       Powered by
                     </span>{" "}
                     <a
                       href="https://lab.wschoi.com"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className=" bg-white/10 py-1 px-2 rounded-sm mr-1 inline-flex items-center gap-1 underline-offset-4 font-bold text-slate-500 hover:text-slate-900 hover:bg-white/60"
+                      className=" bg-white/5 py-0.5 px-2 rounded-sm mr-1 inline-flex items-center gap-1 underline-offset-4 font-bold text-slate-500 hover:text-slate-900 hover:bg-white/60"
                     >
                       <NextImage
                         src="/ioes_favicon.ico"
