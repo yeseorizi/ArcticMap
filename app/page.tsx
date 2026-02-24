@@ -421,8 +421,8 @@ export default function HomePage() {
                             className="object-contain mb-2 mr-1 cursor-pointer p-1 rounded-sm hover:bg-white/20"
                             priority
                           />
-                          <span className="text-slate-300 font-bold text-[22px] mt-[-22px] tracking-wide mr-1 flex flex-col">
-                            <span className="text-slate-300 font-light text-xs mb-0.5 ml-[1px]">국립한국해양대학교</span>
+                          <span className="text-slate-300 font-bold text-[24px] mt-[-22px] tracking-wide mr-1 flex flex-col">
+                            <span className="text-slate-300 font-light text-xs mb-1 ml-[1px]">국립한국해양대학교</span>
                             <span>{t("POSTERC_1")}</span>
                           </span>
                         </div>
