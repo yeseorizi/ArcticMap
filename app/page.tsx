@@ -411,16 +411,23 @@ export default function HomePage() {
                     </a>
                   </div>
                   <span 
-                    className="font-light text-slate-500">
-                    <span>
+                    className="flex items-center font-light text-slate-500">
+                    <span className="mr-2">
                       Powered by
                     </span>{" "}
                     <a
                       href="https://lab.wschoi.com"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="underline mr-1 underline-offset-4 font-bold text-slate-500 hover:text-blue-300/60 "
+                      className=" bg-white/10 py-1 px-2 rounded-sm mr-1 inline-flex items-center gap-1 underline-offset-4 font-bold text-slate-500 hover:text-slate-900 hover:bg-white/60"
                     >
+                      <NextImage
+                        src="/ioes_favicon.ico"
+                        alt="IOES favicon"
+                        width={12}
+                        height={12}
+                        className="object-contain"
+                      />
                       IOES Lab. KMOU
                     </a>
                   </span>
