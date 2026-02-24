@@ -719,11 +719,12 @@ export default function MapViewer({
   };
 
   const buildOverlaySource = (
-    overlay: TileLayerSource,
+    overlay: TileLayerSource | GraticuleSource,
     url: string,
     date: string,
   ) => {
     if (!dataset || !tileGridRef.current) return null;
+    if (isGraticuleSource(overlay)) return null;
 
     if (overlay.kind === "wms") {
       const mapProjection = dataset.mapConfig.projection;
