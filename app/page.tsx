@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
+import NextImage from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import DataLayersPanel from "@/components/DataLayersPanel";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
@@ -389,6 +390,40 @@ export default function HomePage() {
                   <p className="text-xs text-slate-500">
                     {activeDate || t("loading")}
                   </p>
+                </div>
+                <div className="text-xs flex flex-col items-end">
+                  <div>
+                    <a
+                      href="https://www.kmou.ac.kr"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Visit KMOU website"
+                      title="Visit KMOU website"
+                    >
+                      <NextImage
+                        src="/KMOU_ENG_LightColor.png"
+                        alt="KMOU logo"
+                        width={230}
+                        height={55}
+                        className="object-contain mb-2 mt-0.5 cursor-pointer p-1 rounded-sm hover:bg-white/20"
+                        priority
+                      />
+                    </a>
+                  </div>
+                  <span 
+                    className="font-light text-slate-500">
+                    <span>
+                      Powered by
+                    </span>{" "}
+                    <a
+                      href="https://lab.wschoi.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline mr-1 underline-offset-4 font-bold text-slate-500 hover:text-blue-300/60 "
+                    >
+                      IOES Lab. KMOU
+                    </a>
+                  </span>
                 </div>
               </CardContent>
             </Card>
