@@ -1149,13 +1149,13 @@ export default function MapViewer({
     if (!map || !dataset) return;
 
     const previousLayer = iceLayer.current;
-    if (previousLayer) {
-      map.removeLayer(previousLayer);
-      iceLayer.current = null;
-      iceLayerSourceId.current = null;
-    }
 
     if (!iceLayerUrl || !activeIceSource) {
+      if (previousLayer) {
+        map.removeLayer(previousLayer);
+        iceLayer.current = null;
+        iceLayerSourceId.current = null;
+      }
       setIceStatus({ state: "idle" });
       return;
     }
@@ -1197,6 +1197,9 @@ export default function MapViewer({
       detachRenderComplete();
       layer.setOpacity(iceOpacity);
       activateLayer();
+      if (previousLayer && previousLayer !== layer) {
+        map.removeLayer(previousLayer);
+      }
     };
 
     const failLayer = (message: string) => {
@@ -1260,7 +1263,6 @@ export default function MapViewer({
       layer = nextLayer;
       layer.setZIndex(LAYER_Z_INDEX.ice);
       map.addLayer(layer);
-      activateLayer();
       renderCompleteKey = map.on("rendercomplete", markReadyIfIdle);
       map.render();
     };
