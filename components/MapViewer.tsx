@@ -804,6 +804,7 @@ export default function MapViewer({
       extent: viewExtent,
       minZoom: dataset.mapConfig.minZoom,
       maxZoom: dataset.mapConfig.maxZoom,
+      rotation: Math.PI,
       center: [
         (tileGridExtent[0] + tileGridExtent[2]) / 2,
         (tileGridExtent[1] + tileGridExtent[3]) / 2,
