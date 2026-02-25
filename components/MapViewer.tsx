@@ -1542,7 +1542,7 @@ export default function MapViewer({
             {legendData?.units ? <span>{legendData.units}</span> : null}
           </div>
           {legendData ? (
-            <div className="mt-1 w-[320px]">
+            <div className="mt-1 w-[140px]">
               {legendData.gradient ? (
                 <div className="h-4 w-full rounded-md border border-slate-700/70 bg-slate-950/40 p-[2px]">
                   <div
@@ -1558,7 +1558,7 @@ export default function MapViewer({
                       alt={`${activeIceSource?.label ?? "legend"}`}
                       className={
                         legendOrientation === "vertical"
-                          ? "absolute left-1/2 top-1/2 h-[320px] w-[32px] -translate-x-1/2 -translate-y-1/2 rotate-90 object-cover"
+                          ? "absolute left-1/2 top-1/2 h-[160px] w-[32px] -translate-x-1/2 -translate-y-1/2 rotate-90 object-cover"
                           : "h-full w-full object-cover"
                       }
                       onLoad={handleLegendImageLoad}
@@ -1573,7 +1573,7 @@ export default function MapViewer({
               </div>
             </div>
           ) : (
-            <div className="mt-1 w-[320px]">
+            <div className="mt-1 w-[160px]">
               <div className="h-4 w-full rounded-full border border-slate-700/70 bg-slate-950/40 p-[2px]">
                 <div className="relative h-full w-full overflow-hidden rounded-full">
                   <img
@@ -1581,7 +1581,7 @@ export default function MapViewer({
                   alt={`${activeIceSource?.label ?? "legend"}`}
                   className={
                     legendOrientation === "vertical"
-                      ? "absolute left-1/2 top-1/2 h-[320px] w-[32px] -translate-x-1/2 -translate-y-1/2 rotate-90 object-cover"
+                      ? "absolute left-1/2 top-1/2 h-[160px] w-[32px] -translate-x-1/2 -translate-y-1/2 rotate-90 object-cover"
                       : "h-full w-full object-cover"
                   }
                     onLoad={handleLegendImageLoad}
@@ -1594,18 +1594,36 @@ export default function MapViewer({
         </div>
       ) : null}
 
-      <div className="absolute left-4 top-4 z-[1000] rounded-md bg-slate-900/80 px-3 py-2 text-[11px] text-slate-300">
-        <div>
-          {t("baseMap")}:{" "}
+      <div className="absolute left-4 top-4 z-[1000] rounded-md bg-slate-800/80 px-3 py-2 text-[11px] text-slate-300">
+        <div className="w-[140px]">
+          {" "}
+        </div>
+        <div className="font-extrabold bg-white/10 rounded-sm w-fit py-0.5 px-1.5">
+          {t("baseMap")}
+        </div>
+        <div className="ml-1 mt-1">
           {activeBaseLayer ? activeBaseLayer.label : <span>{t("notSelected")}</span>}
         </div>
-        <div>
-          {t("dataSource")}:{" "}
-          {activeIceSource ? activeIceSource.label : <span>{t("notSelected")}</span>}
+        <div className="font-extrabold bg-white/10 rounded-sm w-fit py-0.5 px-1.5 mt-2">
+          {t("dataSource")}
         </div>
-        <div className="mt-1 flex items-center gap-2">
+        <div className="ml-1 mt-1">
+          {activeIceSource
+            ? <div className="flex flex-col">
+                <span>
+                  {activeIceSource.label.split(",", 2)[0].trim()}
+                </span>
+                <span>
+                  {activeIceSource.label.split(",", 2)[1].trim()}
+                </span>
+              </div>
+            : <span>{t("notSelected")}</span>}
+        </div>
+        <div className="mt-2 flex items-center gap-2 pb-1">
           <span>
-            {t("dataStatus")}:{" "}
+            <span className="font-extrabold bg-white/10 rounded-sm w-fit py-0.5 px-1.5 mr-2">
+                {t("dataStatus")}
+            </span>
             <span
               className={
                 iceStatus.state === "error"

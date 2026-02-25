@@ -191,7 +191,7 @@ export const dataset: DatasetResponse = {
     ],
     viewBounds: [
       [-7500000, -7500000],
-      [7500000, 7500000],
+      [8500000, 8500000],
     ],
     center: [90, 0],
     initialZoom: 0,
