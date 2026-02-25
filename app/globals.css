@@ -247,12 +247,34 @@ h6 {
 
 .ol-control button:hover {
   background: #1e293b;
+  color: #e2e8f0;
+}
+
+.ol-control button:focus {
+  color: #e2e8f0;
+}
+
+.ol-control button:hover .ol-compass,
+.ol-control button:focus .ol-compass {
+  color: #e2e8f0;
 }
 
 .ol-zoom {
   right: 0.75rem;
   left: auto;
   top: 0.75rem;
+}
+
+.ol-rotate {
+  right: 0.75rem;
+  left: auto;
+  top: 3.8rem;
+}
+
+.ol-reset-view {
+  right: 0.75rem;
+  left: auto;
+  top: 5.3rem;
 }
 
 .ol-attribution {
@@ -269,7 +291,7 @@ h6 {
 .graticule-layer canvas,
 .graticule-layer img {
   filter: brightness(0) invert(1);
-  mix-blend-mode: screen;
+  mix-blend-mode: difference;
 }
 
 @layer utilities {
