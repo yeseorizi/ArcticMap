@@ -133,6 +133,14 @@ const gibsStaticWmts3857Template =
   "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{tileMatrixSet}/{z}/{y}/{x}.{format}";
 const eoxWmsTemplate = "https://tiles.maps.eox.at/wms";
 const osmUrlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const cartoVoyagerUrlTemplate =
+  "https://abcd.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
+const stadiaAlidadeSmoothDarkUrlTemplate =
+  "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png";
+const esriWorldImageryUrlTemplate =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const usgsImageryTopoUrlTemplate =
+  "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{z}/{y}/{x}";
 const noaaGeoTiffTemplate =
   "https://noaadata.apps.nsidc.org/NOAA/G02135/north/daily/geotiff/{year}/{month}_{monthName}/N_{ymd}_concentration_v4.0.tif";
 const bremenAsiAmsr2GeoTiffTemplate =
@@ -203,9 +211,86 @@ export const dataset: DatasetResponse = {
     ],
   },
   baseLayers: {
+    stadiaAlidadeSmoothDark: {
+      id: "stadiaAlidadeSmoothDark",
+      label: "Dark Map (Stadia Alidade Smooth Dark)",
+      description: "Stadia Maps Alidade Smooth Dark raster basemap",
+      layer: "alidade_smooth_dark",
+      infoUrl: "https://www.stadiamaps.com/",
+      tileMatrixSet: "xyz",
+      format: "png",
+      attribution: "Stadia Maps / OpenMapTiles / OpenStreetMap contributors",
+      urlTemplate: stadiaAlidadeSmoothDarkUrlTemplate,
+      opacity: 1,
+      sourceProjection: "EPSG:3857",
+      tileSize: 256,
+      wrapX: true,
+    },
+    cartoVoyager: {
+      id: "cartoVoyager",
+      label: "Gray Map (CARTO Voyager)",
+      description: "CARTO Voyager raster basemap",
+      layer: "voyager",
+      infoUrl: "https://carto.com/attributions",
+      tileMatrixSet: "xyz",
+      format: "png",
+      attribution: "OpenStreetMap contributors / CARTO",
+      urlTemplate: cartoVoyagerUrlTemplate,
+      opacity: 1,
+      sourceProjection: "EPSG:3857",
+      tileSize: 256,
+      wrapX: true,
+    },
+    openStreetMap: {
+      id: "openStreetMap",
+      label: "Colorful Map (OpenStreetMap Mapnik)",
+      description: "OpenStreetMap standard basemap",
+      layer: "osm",
+      infoUrl: "https://www.openstreetmap.org/copyright",
+      tileMatrixSet: "xyz",
+      format: "png",
+      attribution: "OpenStreetMap contributors",
+      urlTemplate: osmUrlTemplate,
+      opacity: 1,
+      sourceProjection: "EPSG:3857",
+      tileSize: 256,
+      wrapX: true,
+    },
+    usgsImageryTopo: {
+      id: "usgsImageryTopo",
+      label: "Topo Satellite (USGS Imagery Topo)",
+      description: "USGS The National Map Imagery Topo basemap",
+      layer: "USGSImageryTopo",
+      infoUrl:
+        "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer",
+      tileMatrixSet: "xyz",
+      format: "jpg",
+      attribution: "USGS The National Map",
+      urlTemplate: usgsImageryTopoUrlTemplate,
+      opacity: 1,
+      sourceProjection: "EPSG:3857",
+      tileSize: 256,
+      wrapX: false,
+    },
+    esriWorldImagery: {
+      id: "esriWorldImagery",
+      label: "Satellite Map (Esri World Imagery)",
+      description: "Esri World Imagery satellite basemap",
+      layer: "World_Imagery",
+      infoUrl:
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+      tileMatrixSet: "xyz",
+      format: "jpg",
+      attribution: "Esri World Imagery",
+      urlTemplate: esriWorldImageryUrlTemplate,
+      opacity: 1,
+      sourceProjection: "EPSG:3857",
+      tileSize: 256,
+      wrapX: true,
+    },
     blueMarble: {
       id: "blueMarble",
-      label: "Blue Marble",
+      label: "Satellite Map (NASA Blue Marble)",
       description: "The MODIS Blue Marble, Next Generation is a static product created with data from 2004 from the MODIS instrument on board the Terra satellite. The image resolution is 500 m. It can be viewed in Worldview/Global Imagery Browse Services (GIBS)",
       layer: "BlueMarble_NextGeneration",
       infoUrl:
@@ -219,7 +304,7 @@ export const dataset: DatasetResponse = {
     blueMarbleBathymetry: {
       id: "blueMarbleBathymetry",
       description: "Blue Marble with shaded relief and bathymetry",
-      label: "Blue Marble Bathymetry",
+      label: "Satellite Map (NASA Blue Marble Bathymetry)",
       layer: "BlueMarble_ShadedRelief_Bathymetry",
       infoUrl:
         "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation",
@@ -229,23 +314,9 @@ export const dataset: DatasetResponse = {
       urlTemplate: gibsStaticUrlTemplate,
       opacity: 0.9,
     },
-    openStreetMap: {
-      id: "openStreetMap",
-      label: "OpenStreetMap (Global)",
-      description: "OpenStreetMap standard basemap",
-      layer: "osm",
-      infoUrl: "https://www.openstreetmap.org/copyright",
-      tileMatrixSet: "xyz",
-      format: "png",
-      attribution: "OpenStreetMap contributors",
-      urlTemplate: osmUrlTemplate,
-      opacity: 1,
-      sourceProjection: "EPSG:3857",
-      tileSize: 256,
-      wrapX: true,
-    },
     // modis: {
     //   id: "modis",
+    //   description:"modis",
     //   label: "MODIS Terra True Color",
     //   layer: "MODIS_Terra_CorrectedReflectance_TrueColor",
     //   tileMatrixSet: "250m",
@@ -682,7 +753,7 @@ export const dataset: DatasetResponse = {
     22, 23, 24, 25, 26, 27, 28,
   ],
   defaults: {
-    baseLayerKey: "openStreetMap",
+    baseLayerKey: "stadiaAlidadeSmoothDark",
     iceSourceKey: "ASMR2OsiSafIceConc",
     showCoastlines: true,
     showGraticule: true,

@@ -272,12 +272,20 @@ h6 {
   mix-blend-mode: screen;
 }
 
+.ol-layer.coastline-layer,
+.ol-layer.coastline-layer canvas,
+.ol-layer.coastline-layer img,
+.coastline-layer,
+.coastline-layer canvas,
+.coastline-layer img {
+  filter: brightness(0);
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
 }
-
 
 
 @layer base {
