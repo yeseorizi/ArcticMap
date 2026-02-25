@@ -5,6 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
+import {
+  CirclePlayIcon,
+  CirclePauseIcon,
+} from "lucide-react"
 import { useLanguage } from "@/components/LanguageProvider";
 
 interface CalendarSelectorProps {
@@ -257,10 +261,18 @@ export default function CalendarSelector({
         <div className="space-y-3">
           <Button
             variant="outline"
-            className="w-full border-slate-600 bg-slate-900/70 text-slate-200"
+            className={`w-full ${isPlaying ? "bg-green-400/10" : "bg-slate-900/70"}  border-slate-600 text-slate-200`}
             onClick={() => setIsPlaying((value) => !value)}
           >
-            {isPlaying ? t("animationStop") : t("animationStart")}
+            {isPlaying ? 
+            <span className="flex w-full items-center justify-center text-red-500">
+              <CirclePauseIcon className="mr-2 opacity-80" />
+              {t("animationStop")}
+            </span> : 
+            <span className="flex w-full items-center justify-center">
+              <CirclePlayIcon className="mr-2 opacity-80" />
+              {t("animationStart")}
+            </span>}
           </Button>
           <div className="space-y-2 text-xs text-slate-400">
             <div className="flex items-center justify-between">
