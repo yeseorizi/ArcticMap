@@ -17,6 +17,7 @@ import VectorSource from "ol/source/Vector";
 import TileGrid from "ol/tilegrid/TileGrid";
 import { createXYZ } from "ol/tilegrid";
 import { defaults as defaultControls } from "ol/control";
+import Control from "ol/control/Control";
 import Feature from "ol/Feature";
 import LineString from "ol/geom/LineString";
 import Point from "ol/geom/Point";
@@ -60,6 +61,16 @@ const LAYER_Z_INDEX = {
   coast: 30,
   graticule: 40,
 } as const;
+
+// Number of extra UI zoom-out steps to apply after the initial fit.
+const EXTRA_VIEW_ZOOM_OUT_LEVELS = 1;
+// Keep one additional coarse level so fit() has headroom before applying the startup offset.
+const VIEW_ZOOM_HEADROOM_LEVELS = EXTRA_VIEW_ZOOM_OUT_LEVELS + 1;
+// Shift map content upward on first render so a bit more southern area is visible.
+const INITIAL_MAP_SHIFT_UP_PX = 100;
+// Rotate reset button should also restore this neutral zoom/translation preset.
+const RESET_VIEW_SOURCE_ZOOM = 0;
+const RESET_VIEW_SHIFT_UP_PX = 0;
 
 const pad2 = (value: number) => String(value).padStart(2, "0");
 
@@ -117,6 +128,35 @@ const legendJsonCache = new Map<string, LegendJsonResponse>();
 const legendMetaCache = new Map<string, LegendMetaResponse>();
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+const buildViewResolutions = (baseResolutions: number[], extraZoomOutLevels: number) => {
+  if (extraZoomOutLevels <= 0 || baseResolutions.length === 0) {
+    return baseResolutions;
+  }
+
+  const first = baseResolutions[0];
+  const second = baseResolutions[1];
+  const ratio =
+    second && Number.isFinite(second) && second > 0 ? first / second : 2;
+  const extraResolutions: number[] = [];
+  let current = first;
+
+  for (let idx = 0; idx < extraZoomOutLevels; idx += 1) {
+    current *= ratio;
+    extraResolutions.push(current);
+  }
+
+  return [...extraResolutions.reverse(), ...baseResolutions];
+};
+
+const toSourceZoom = (
+  viewZoom: number | undefined,
+  extraZoomOutLevels: number,
+  fallbackSourceZoom: number,
+) => (viewZoom ?? fallbackSourceZoom + extraZoomOutLevels) - extraZoomOutLevels;
+
+const toViewZoom = (sourceZoom: number, extraZoomOutLevels: number) =>
+  sourceZoom + extraZoomOutLevels;
 
 const ASI_GEOTIFF_LEGEND_GRADIENT = `linear-gradient(90deg,
   rgba(0, 0, 0, 0) 0%,
@@ -797,25 +837,85 @@ export default function MapViewer({
       tileSize,
     });
     tileGridRef.current = tileGrid;
+    const viewResolutions = buildViewResolutions(
+      dataset.mapConfig.resolutions,
+      VIEW_ZOOM_HEADROOM_LEVELS,
+    );
 
     const view = new View({
       projection: projectionCode,
-      resolutions: dataset.mapConfig.resolutions,
+      resolutions: viewResolutions,
       extent: viewExtent,
-      minZoom: dataset.mapConfig.minZoom,
-      maxZoom: dataset.mapConfig.maxZoom,
+      minZoom: Math.max(0, dataset.mapConfig.minZoom),
+      maxZoom: Math.max(0, dataset.mapConfig.maxZoom + VIEW_ZOOM_HEADROOM_LEVELS),
       rotation: Math.PI,
       center: [
         (tileGridExtent[0] + tileGridExtent[2]) / 2,
         (tileGridExtent[1] + tileGridExtent[3]) / 2,
       ],
-      zoom: dataset.mapConfig.initialZoom,
+      zoom: dataset.mapConfig.initialZoom + VIEW_ZOOM_HEADROOM_LEVELS,
     });
 
-    const map = new OlMap({
+    let map: OlMap | null = null;
+    const resetRotateButtonView = () => {
+      resetMapViewToStartup({
+        rotation: 0,
+        sourceZoom: RESET_VIEW_SOURCE_ZOOM,
+        shiftUpPx: RESET_VIEW_SHIFT_UP_PX,
+      });
+    };
+
+    const resetMapViewToStartup = (
+      options?: { rotation?: number; sourceZoom?: number; shiftUpPx?: number },
+    ) => {
+      if (!map) return;
+
+      const size = map.getSize();
+      if (!size) return;
+
+      if (options?.rotation !== undefined) {
+        view.setRotation(options.rotation);
+      }
+
+      view.fit(tileGridExtent, { size, duration: 0 });
+      if (options?.sourceZoom !== undefined) {
+        const targetViewZoom = toViewZoom(options.sourceZoom, VIEW_ZOOM_HEADROOM_LEVELS);
+        view.setZoom(
+          clamp(
+            targetViewZoom,
+            Math.max(0, dataset.mapConfig.minZoom),
+            Math.max(0, dataset.mapConfig.maxZoom + VIEW_ZOOM_HEADROOM_LEVELS),
+          ),
+        );
+      } else if (EXTRA_VIEW_ZOOM_OUT_LEVELS > 0) {
+        const fittedZoom = view.getZoom();
+        if (fittedZoom !== undefined) {
+          view.setZoom(Math.max(0, fittedZoom - EXTRA_VIEW_ZOOM_OUT_LEVELS));
+        }
+      }
+
+      const center = view.getCenter();
+      if (!center) return;
+      const shiftUpPx = options?.shiftUpPx ?? INITIAL_MAP_SHIFT_UP_PX;
+      view.centerOn(center, size, [
+        size[0] / 2,
+        size[1] / 2 - shiftUpPx,
+      ]);
+    };
+
+    map = new OlMap({
       target: mapRef.current,
       view,
-      controls: defaultControls({ zoom: true, attribution: false }),
+      controls: defaultControls({
+        zoom: true,
+        attribution: false,
+        rotateOptions: {
+          autoHide: false,
+          resetNorth: () => {
+            resetRotateButtonView();
+          },
+        },
+      }),
     });
 
     baseLayer.current = new TileLayer({
@@ -843,7 +943,11 @@ export default function MapViewer({
       graticuleLayer.current = buildGraticuleVectorLayer(
         graticuleSource,
         projectionCode,
-        view.getZoom() ?? dataset.mapConfig.initialZoom,
+        toSourceZoom(
+          view.getZoom(),
+          VIEW_ZOOM_HEADROOM_LEVELS,
+          dataset.mapConfig.initialZoom,
+        ),
       );
       graticuleLayer.current.setVisible(showGraticule);
       graticuleLayer.current.setZIndex(LAYER_Z_INDEX.graticule);
@@ -864,13 +968,47 @@ export default function MapViewer({
       if (!isGraticuleSource(graticule)) return;
       if (!isVectorGraticuleLayer(graticuleLayer.current)) return;
 
-      const zoom = view.getZoom() ?? dataset.mapConfig.initialZoom;
+      const zoom = toSourceZoom(
+        view.getZoom(),
+        VIEW_ZOOM_HEADROOM_LEVELS,
+        dataset.mapConfig.initialZoom,
+      );
       const rebuilt = buildGraticuleVectorLayer(graticule, projectionCode, zoom);
       graticuleLayer.current.setSource(rebuilt.getSource() as VectorSource);
       graticuleLayer.current.setStyle(rebuilt.getStyle() as any);
     });
 
     mapInstance.current = map;
+    const resetViewControlElement = document.createElement("div");
+    resetViewControlElement.className = "ol-reset-view ol-unselectable ol-control";
+    const resetViewButton = document.createElement("button");
+    resetViewButton.type = "button";
+    resetViewButton.title = "Reset view";
+    resetViewButton.setAttribute("aria-label", "Reset view");
+    resetViewButton.textContent = "H";
+    resetViewControlElement.appendChild(resetViewButton);
+
+    const resetViewControl = new Control({ element: resetViewControlElement });
+    map.addControl(resetViewControl);
+
+    const handleResetViewButtonClick = (event: MouseEvent) => {
+      event.preventDefault();
+      resetMapViewToStartup({ rotation: Math.PI });
+    };
+    resetViewButton.addEventListener("click", handleResetViewButtonClick);
+
+    const rotateResetButton = map
+      .getTargetElement()
+      ?.querySelector<HTMLButtonElement>(".ol-rotate button");
+    if (rotateResetButton) {
+      rotateResetButton.textContent = "N";
+    }
+    const handleRotateResetButtonClick = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      resetRotateButtonView();
+    };
+    rotateResetButton?.addEventListener("click", handleRotateResetButtonClick, true);
 
     const updateCursorCoords = (coordinate: number[]) => {
       const [lon, lat] = transform(coordinate, projectionCode, "EPSG:4326");
@@ -893,10 +1031,13 @@ export default function MapViewer({
     }
 
     map.once("postrender", () => {
-      map.getView().fit(tileGridExtent, { size: map.getSize(), duration: 0 });
+      resetMapViewToStartup();
     });
 
     return () => {
+      rotateResetButton?.removeEventListener("click", handleRotateResetButtonClick, true);
+      resetViewButton.removeEventListener("click", handleResetViewButtonClick);
+      map.removeControl(resetViewControl);
       map.un("pointermove", handlePointerMove);
       map.setTarget(undefined);
       mapInstance.current = null;

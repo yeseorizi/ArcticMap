@@ -271,6 +271,12 @@ h6 {
   top: 3.8rem;
 }
 
+.ol-reset-view {
+  right: 0.75rem;
+  left: auto;
+  top: 5.3rem;
+}
+
 .ol-attribution {
   right: 0.75rem;
   left: auto;
