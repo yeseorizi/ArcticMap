@@ -285,7 +285,7 @@ h6 {
 .graticule-layer canvas,
 .graticule-layer img {
   filter: brightness(0) invert(1);
-  mix-blend-mode: screen;
+  mix-blend-mode: difference;
 }
 
 @layer utilities {
