@@ -133,8 +133,12 @@ const gibsStaticWmts3857Template =
   "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{tileMatrixSet}/{z}/{y}/{x}.{format}";
 const eoxWmsTemplate = "https://tiles.maps.eox.at/wms";
 const osmUrlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-const cartoVoyagerUrlTemplate =
+const cartoDarkUrlTemplate =
+  "https://abcd.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png";
+const cartoLightUrlTemplate =
   "https://abcd.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
+const cartoVoyagerUrlTemplate =
+  "https://abcd.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png";
 const stadiaAlidadeSmoothDarkUrlTemplate =
   "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png";
 const esriWorldImageryUrlTemplate =
@@ -211,16 +215,31 @@ export const dataset: DatasetResponse = {
     ],
   },
   baseLayers: {
-    stadiaAlidadeSmoothDark: {
-      id: "stadiaAlidadeSmoothDark",
-      label: "Dark Map (Stadia Alidade Smooth Dark)",
-      description: "Stadia Maps Alidade Smooth Dark raster basemap",
-      layer: "alidade_smooth_dark",
-      infoUrl: "https://www.stadiamaps.com/",
+    cartoDark: {
+      id: "cartoDark",
+      label: "Dark Map (CartoDB DarkMatter)",
+      description: "Carto DB DarkMatter dark color map",
+      layer: "voyager",
+      infoUrl: "https://carto.com/attributions",
       tileMatrixSet: "xyz",
       format: "png",
-      attribution: "Stadia Maps / OpenMapTiles / OpenStreetMap contributors",
-      urlTemplate: stadiaAlidadeSmoothDarkUrlTemplate,
+      attribution: "OpenStreetMap contributors / CartoDB",
+      urlTemplate: cartoDarkUrlTemplate,
+      opacity: 1,
+      sourceProjection: "EPSG:3857",
+      tileSize: 256,
+      wrapX: true,
+    },
+    cartoLight: {
+      id: "cartoLight",
+      label: "Light Map (CartoDB Positron)",
+      description: "Carto DB Positron light color map",
+      layer: "voyager",
+      infoUrl: "https://carto.com/attributions",
+      tileMatrixSet: "xyz",
+      format: "png",
+      attribution: "OpenStreetMap contributors / CartoDB",
+      urlTemplate: cartoLightUrlTemplate,
       opacity: 1,
       sourceProjection: "EPSG:3857",
       tileSize: 256,
@@ -228,13 +247,13 @@ export const dataset: DatasetResponse = {
     },
     cartoVoyager: {
       id: "cartoVoyager",
-      label: "Gray Map (CARTO Voyager)",
+      label: "Colorful Map (CartoDB Voyager)",
       description: "CARTO Voyager raster basemap",
       layer: "voyager",
       infoUrl: "https://carto.com/attributions",
       tileMatrixSet: "xyz",
       format: "png",
-      attribution: "OpenStreetMap contributors / CARTO",
+      attribution: "OpenStreetMap contributors / CartoDB",
       urlTemplate: cartoVoyagerUrlTemplate,
       opacity: 1,
       sourceProjection: "EPSG:3857",
@@ -753,7 +772,7 @@ export const dataset: DatasetResponse = {
     22, 23, 24, 25, 26, 27, 28,
   ],
   defaults: {
-    baseLayerKey: "stadiaAlidadeSmoothDark",
+    baseLayerKey: "cartoDark",
     iceSourceKey: "ASMR2OsiSafIceConc",
     showCoastlines: true,
     showGraticule: true,
