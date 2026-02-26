@@ -17,6 +17,7 @@ import VectorSource from "ol/source/Vector";
 import TileGrid from "ol/tilegrid/TileGrid";
 import { createXYZ } from "ol/tilegrid";
 import { defaults as defaultControls } from "ol/control";
+import Control from "ol/control/Control";
 import Feature from "ol/Feature";
 import LineString from "ol/geom/LineString";
 import Point from "ol/geom/Point";
@@ -60,6 +61,16 @@ const LAYER_Z_INDEX = {
   coast: 30,
   graticule: 40,
 } as const;
+
+// Number of extra UI zoom-out steps to apply after the initial fit.
+const EXTRA_VIEW_ZOOM_OUT_LEVELS = 1;
+// Keep one additional coarse level so fit() has headroom before applying the startup offset.
+const VIEW_ZOOM_HEADROOM_LEVELS = EXTRA_VIEW_ZOOM_OUT_LEVELS + 1;
+// Shift map content upward on first render so a bit more southern area is visible.
+const INITIAL_MAP_SHIFT_UP_PX = 100;
+// Rotate reset button should also restore this neutral zoom/translation preset.
+const RESET_VIEW_SOURCE_ZOOM = 0;
+const RESET_VIEW_SHIFT_UP_PX = 0;
 
 const pad2 = (value: number) => String(value).padStart(2, "0");
 
@@ -118,18 +129,61 @@ const legendMetaCache = new Map<string, LegendMetaResponse>();
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
-const VIRIDIS_LEGEND_GRADIENT = `linear-gradient(90deg,
-  #440154 0%,
-  #3b528b 20%,
-  #21918c 40%,
-  #5ec962 60%,
-  #b8de29 80%,
-  #fde725 100%
+const buildViewResolutions = (baseResolutions: number[], extraZoomOutLevels: number) => {
+  if (extraZoomOutLevels <= 0 || baseResolutions.length === 0) {
+    return baseResolutions;
+  }
+
+  const first = baseResolutions[0];
+  const second = baseResolutions[1];
+  const ratio =
+    second && Number.isFinite(second) && second > 0 ? first / second : 2;
+  const extraResolutions: number[] = [];
+  let current = first;
+
+  for (let idx = 0; idx < extraZoomOutLevels; idx += 1) {
+    current *= ratio;
+    extraResolutions.push(current);
+  }
+
+  return [...extraResolutions.reverse(), ...baseResolutions];
+};
+
+const toSourceZoom = (
+  viewZoom: number | undefined,
+  extraZoomOutLevels: number,
+  fallbackSourceZoom: number,
+) => (viewZoom ?? fallbackSourceZoom + extraZoomOutLevels) - extraZoomOutLevels;
+
+const toViewZoom = (sourceZoom: number, extraZoomOutLevels: number) =>
+  sourceZoom + extraZoomOutLevels;
+
+const ASI_GEOTIFF_LEGEND_GRADIENT = `linear-gradient(90deg,
+  rgba(0, 0, 0, 0) 0%,
+  #2ee6ff 8%,
+  #2eff8f 24%,
+  #d4ff39 42%,
+  #ffb11f 62%,
+  #ff4f32 82%,
+  #ff2be0 100%
 )`;
 
-const ASI_GEOTIFF_LEGEND_GRADIENT = VIRIDIS_LEGEND_GRADIENT;
-const THIN_ICE_LEGEND_GRADIENT = VIRIDIS_LEGEND_GRADIENT;
-const NOAA_SEA_ICE_INDEX_LEGEND_GRADIENT = VIRIDIS_LEGEND_GRADIENT;
+const THIN_ICE_LEGEND_GRADIENT = `linear-gradient(90deg,
+  #2ee6ff 0%,
+  #2eff8f 22%,
+  #d4ff39 42%,
+  #ffb11f 62%,
+  #ff4f32 82%,
+  #ffffff 100%
+)`;
+
+const NOAA_SEA_ICE_INDEX_LEGEND_GRADIENT = `linear-gradient(90deg,
+  #093c70 0%,
+  #256eaf 35%,
+  #77b8e8 65%,
+  #d9f0ff 85%,
+  #ffffff 100%
+)`;
 
 const buildGeoTiffStyle = (sourceId: string) => {
   if (sourceId === "bremenSmosSmapThinIceThickness") {
@@ -781,24 +835,85 @@ export default function MapViewer({
       tileSize,
     });
     tileGridRef.current = tileGrid;
+    const viewResolutions = buildViewResolutions(
+      dataset.mapConfig.resolutions,
+      VIEW_ZOOM_HEADROOM_LEVELS,
+    );
 
     const view = new View({
       projection: projectionCode,
-      resolutions: dataset.mapConfig.resolutions,
+      resolutions: viewResolutions,
       extent: viewExtent,
-      minZoom: dataset.mapConfig.minZoom,
-      maxZoom: dataset.mapConfig.maxZoom,
+      minZoom: Math.max(0, dataset.mapConfig.minZoom),
+      maxZoom: Math.max(0, dataset.mapConfig.maxZoom + VIEW_ZOOM_HEADROOM_LEVELS),
+      rotation: Math.PI,
       center: [
         (tileGridExtent[0] + tileGridExtent[2]) / 2,
         (tileGridExtent[1] + tileGridExtent[3]) / 2,
       ],
-      zoom: dataset.mapConfig.initialZoom,
+      zoom: dataset.mapConfig.initialZoom + VIEW_ZOOM_HEADROOM_LEVELS,
     });
 
-    const map = new OlMap({
+    let map: OlMap | null = null;
+    const resetRotateButtonView = () => {
+      resetMapViewToStartup({
+        rotation: 0,
+        sourceZoom: RESET_VIEW_SOURCE_ZOOM,
+        shiftUpPx: RESET_VIEW_SHIFT_UP_PX,
+      });
+    };
+
+    const resetMapViewToStartup = (
+      options?: { rotation?: number; sourceZoom?: number; shiftUpPx?: number },
+    ) => {
+      if (!map) return;
+
+      const size = map.getSize();
+      if (!size) return;
+
+      if (options?.rotation !== undefined) {
+        view.setRotation(options.rotation);
+      }
+
+      view.fit(tileGridExtent, { size, duration: 0 });
+      if (options?.sourceZoom !== undefined) {
+        const targetViewZoom = toViewZoom(options.sourceZoom, VIEW_ZOOM_HEADROOM_LEVELS);
+        view.setZoom(
+          clamp(
+            targetViewZoom,
+            Math.max(0, dataset.mapConfig.minZoom),
+            Math.max(0, dataset.mapConfig.maxZoom + VIEW_ZOOM_HEADROOM_LEVELS),
+          ),
+        );
+      } else if (EXTRA_VIEW_ZOOM_OUT_LEVELS > 0) {
+        const fittedZoom = view.getZoom();
+        if (fittedZoom !== undefined) {
+          view.setZoom(Math.max(0, fittedZoom - EXTRA_VIEW_ZOOM_OUT_LEVELS));
+        }
+      }
+
+      const center = view.getCenter();
+      if (!center) return;
+      const shiftUpPx = options?.shiftUpPx ?? INITIAL_MAP_SHIFT_UP_PX;
+      view.centerOn(center, size, [
+        size[0] / 2,
+        size[1] / 2 - shiftUpPx,
+      ]);
+    };
+
+    map = new OlMap({
       target: mapRef.current,
       view,
-      controls: defaultControls({ zoom: true, attribution: false }),
+      controls: defaultControls({
+        zoom: true,
+        attribution: false,
+        rotateOptions: {
+          autoHide: false,
+          resetNorth: () => {
+            resetRotateButtonView();
+          },
+        },
+      }),
     });
 
     baseLayer.current = new TileLayer({
@@ -826,7 +941,11 @@ export default function MapViewer({
       graticuleLayer.current = buildGraticuleVectorLayer(
         graticuleSource,
         projectionCode,
-        view.getZoom() ?? dataset.mapConfig.initialZoom,
+        toSourceZoom(
+          view.getZoom(),
+          VIEW_ZOOM_HEADROOM_LEVELS,
+          dataset.mapConfig.initialZoom,
+        ),
       );
       graticuleLayer.current.setVisible(showGraticule);
       graticuleLayer.current.setZIndex(LAYER_Z_INDEX.graticule);
@@ -847,13 +966,47 @@ export default function MapViewer({
       if (!isGraticuleSource(graticule)) return;
       if (!isVectorGraticuleLayer(graticuleLayer.current)) return;
 
-      const zoom = view.getZoom() ?? dataset.mapConfig.initialZoom;
+      const zoom = toSourceZoom(
+        view.getZoom(),
+        VIEW_ZOOM_HEADROOM_LEVELS,
+        dataset.mapConfig.initialZoom,
+      );
       const rebuilt = buildGraticuleVectorLayer(graticule, projectionCode, zoom);
       graticuleLayer.current.setSource(rebuilt.getSource() as VectorSource);
       graticuleLayer.current.setStyle(rebuilt.getStyle() as any);
     });
 
     mapInstance.current = map;
+    const resetViewControlElement = document.createElement("div");
+    resetViewControlElement.className = "ol-reset-view ol-unselectable ol-control";
+    const resetViewButton = document.createElement("button");
+    resetViewButton.type = "button";
+    resetViewButton.title = "Reset view";
+    resetViewButton.setAttribute("aria-label", "Reset view");
+    resetViewButton.textContent = "H";
+    resetViewControlElement.appendChild(resetViewButton);
+
+    const resetViewControl = new Control({ element: resetViewControlElement });
+    map.addControl(resetViewControl);
+
+    const handleResetViewButtonClick = (event: MouseEvent) => {
+      event.preventDefault();
+      resetMapViewToStartup({ rotation: Math.PI });
+    };
+    resetViewButton.addEventListener("click", handleResetViewButtonClick);
+
+    const rotateResetButton = map
+      .getTargetElement()
+      ?.querySelector<HTMLButtonElement>(".ol-rotate button");
+    if (rotateResetButton) {
+      rotateResetButton.textContent = "N";
+    }
+    const handleRotateResetButtonClick = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      resetRotateButtonView();
+    };
+    rotateResetButton?.addEventListener("click", handleRotateResetButtonClick, true);
 
     const updateCursorCoords = (coordinate: number[]) => {
       const [lon, lat] = transform(coordinate, projectionCode, "EPSG:4326");
@@ -876,10 +1029,13 @@ export default function MapViewer({
     }
 
     map.once("postrender", () => {
-      map.getView().fit(tileGridExtent, { size: map.getSize(), duration: 0 });
+      resetMapViewToStartup();
     });
 
     return () => {
+      rotateResetButton?.removeEventListener("click", handleRotateResetButtonClick, true);
+      resetViewButton.removeEventListener("click", handleResetViewButtonClick);
+      map.removeControl(resetViewControl);
       map.un("pointermove", handlePointerMove);
       map.setTarget(undefined);
       mapInstance.current = null;
@@ -991,13 +1147,13 @@ export default function MapViewer({
     if (!map || !dataset) return;
 
     const previousLayer = iceLayer.current;
-    if (previousLayer) {
-      map.removeLayer(previousLayer);
-      iceLayer.current = null;
-      iceLayerSourceId.current = null;
-    }
 
     if (!iceLayerUrl || !activeIceSource) {
+      if (previousLayer) {
+        map.removeLayer(previousLayer);
+        iceLayer.current = null;
+        iceLayerSourceId.current = null;
+      }
       setIceStatus({ state: "idle" });
       return;
     }
@@ -1039,6 +1195,9 @@ export default function MapViewer({
       detachRenderComplete();
       layer.setOpacity(iceOpacity);
       activateLayer();
+      if (previousLayer && previousLayer !== layer) {
+        map.removeLayer(previousLayer);
+      }
     };
 
     const failLayer = (message: string) => {
@@ -1102,7 +1261,6 @@ export default function MapViewer({
       layer = nextLayer;
       layer.setZIndex(LAYER_Z_INDEX.ice);
       map.addLayer(layer);
-      activateLayer();
       renderCompleteKey = map.on("rendercomplete", markReadyIfIdle);
       map.render();
     };
@@ -1384,7 +1542,7 @@ export default function MapViewer({
             {legendData?.units ? <span>{legendData.units}</span> : null}
           </div>
           {legendData ? (
-            <div className="mt-1 w-[320px]">
+            <div className="mt-1 w-[140px]">
               {legendData.gradient ? (
                 <div className="h-4 w-full rounded-md border border-slate-700/70 bg-slate-950/40 p-[2px]">
                   <div
@@ -1400,7 +1558,7 @@ export default function MapViewer({
                       alt={`${activeIceSource?.label ?? "legend"}`}
                       className={
                         legendOrientation === "vertical"
-                          ? "absolute left-1/2 top-1/2 h-[320px] w-[32px] -translate-x-1/2 -translate-y-1/2 rotate-90 object-cover"
+                          ? "absolute left-1/2 top-1/2 h-[160px] w-[32px] -translate-x-1/2 -translate-y-1/2 rotate-90 object-cover"
                           : "h-full w-full object-cover"
                       }
                       onLoad={handleLegendImageLoad}
@@ -1415,7 +1573,7 @@ export default function MapViewer({
               </div>
             </div>
           ) : (
-            <div className="mt-1 w-[320px]">
+            <div className="mt-1 w-[160px]">
               <div className="h-4 w-full rounded-full border border-slate-700/70 bg-slate-950/40 p-[2px]">
                 <div className="relative h-full w-full overflow-hidden rounded-full">
                   <img
@@ -1423,7 +1581,7 @@ export default function MapViewer({
                   alt={`${activeIceSource?.label ?? "legend"}`}
                   className={
                     legendOrientation === "vertical"
-                      ? "absolute left-1/2 top-1/2 h-[320px] w-[32px] -translate-x-1/2 -translate-y-1/2 rotate-90 object-cover"
+                      ? "absolute left-1/2 top-1/2 h-[160px] w-[32px] -translate-x-1/2 -translate-y-1/2 rotate-90 object-cover"
                       : "h-full w-full object-cover"
                   }
                     onLoad={handleLegendImageLoad}
@@ -1436,18 +1594,36 @@ export default function MapViewer({
         </div>
       ) : null}
 
-      <div className="absolute left-4 top-4 z-[1000] rounded-md bg-slate-900/80 px-3 py-2 text-[11px] text-slate-300">
-        <div>
-          {t("baseMap")}:{" "}
+      <div className="absolute left-4 top-4 z-[1000] rounded-md bg-slate-800/80 px-3 py-2 text-[11px] text-slate-300">
+        <div className="w-[140px]">
+          {" "}
+        </div>
+        <div className="font-extrabold bg-white/10 rounded-sm w-fit py-0.5 px-1.5">
+          {t("baseMap")}
+        </div>
+        <div className="ml-1 mt-1">
           {activeBaseLayer ? activeBaseLayer.label : <span>{t("notSelected")}</span>}
         </div>
-        <div>
-          {t("dataSource")}:{" "}
-          {activeIceSource ? activeIceSource.label : <span>{t("notSelected")}</span>}
+        <div className="font-extrabold bg-white/10 rounded-sm w-fit py-0.5 px-1.5 mt-2">
+          {t("dataSource")}
         </div>
-        <div className="mt-1 flex items-center gap-2">
+        <div className="ml-1 mt-1">
+          {activeIceSource
+            ? <div className="flex flex-col">
+                <span>
+                  {activeIceSource.label.split(",", 2)[0].trim()}
+                </span>
+                <span>
+                  {activeIceSource.label.split(",", 2)[1].trim()}
+                </span>
+              </div>
+            : <span>{t("notSelected")}</span>}
+        </div>
+        <div className="mt-2 flex items-center gap-2 pb-1">
           <span>
-            {t("dataStatus")}:{" "}
+            <span className="font-extrabold bg-white/10 rounded-sm w-fit py-0.5 px-1.5 mr-2">
+                {t("dataStatus")}
+            </span>
             <span
               className={
                 iceStatus.state === "error"
