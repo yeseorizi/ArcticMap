@@ -1,6 +1,6 @@
 export type Locale = "en" | "ko" | "ja" | "zh" | "fr" | "es";
 
-export const defaultLocale: Locale = "en";
+export const defaultLocale: Locale = "ko";
 
 export const supportedLocales: Locale[] = ["en", "ko", "ja", "zh", "fr", "es"];
 
